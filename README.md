@@ -1,4 +1,4 @@
-# nmr_ml_tools
+# ml_tools
 collection of tools to predict nmr chemical shifts
 
 Requirements:
