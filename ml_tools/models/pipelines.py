@@ -47,6 +47,12 @@ class RegressorPipeline(RegressorBase):
     def get_params(self,deep=True):
         return self.params
     
+    def get_summary(self,txt=False):
+        summary = self._final_estimator.get_summary(txt)
+        summary['parameters'] = self.params
+        
+        return summary
+
     @property
     def _final_estimator(self):
         return self.steps[-1][1]
@@ -75,4 +81,5 @@ class RegressorPipeline(RegressorBase):
             step.loads(step_pack)
             self.steps.append((name,step))
             self.params.append((name,step.get_params()))
+
         

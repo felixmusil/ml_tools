@@ -1,4 +1,5 @@
-from sklearn.model_selection._split import ShuffleSplit,KFold
+from sklearn.model_selection._split import KFold as _KFold
+from sklearn.model_selection._split import ShuffleSplit as _ShuffleSplit
 from sklearn.model_selection._split import (_BaseKFold,
         BaseCrossValidator,_validate_shuffle_split,BaseShuffleSplit)
 from sklearn.utils.validation import _num_samples
@@ -7,6 +8,22 @@ from abc import ABCMeta, abstractmethod
 from sklearn.externals.six import with_metaclass
 import collections
 import numpy as np
+ 
+
+class KFold(_KFold):
+    def __init__(self, n_splits=3, shuffle=False,random_state=None):
+        super(KFold, self).__init__(n_splits, shuffle, random_state)
+    def get_params(self):
+        params = dict(n_splits=self.n_splits,shuffle=self.shuffle,random_state=self.random_state)
+        return params
+
+class ShuffleSplit(_ShuffleSplit):
+    def __init__(self,n_splits=10, test_size="default", train_size=None,random_state=None):
+        super(ShuffleSplit, self).__init__(n_splits, test_size,train_size, random_state)
+    def get_params(self):
+        params = dict(n_splits=self.n_splits,test_size=self.test_size,
+                    train_size=self.train_size,random_state=self.random_state)
+        return params
 
 class EnvironmentalKFold(_BaseKFold):
     def __init__(self, n_splits=3, shuffle=False,random_state=None,mapping=None):
@@ -14,6 +31,11 @@ class EnvironmentalKFold(_BaseKFold):
             raise ValueError('a mapping should be provided')
         super(EnvironmentalKFold, self).__init__(n_splits, shuffle, random_state)
         self.mapping = mapping
+
+    def get_params(self):
+        params = dict(n_splits=self.n_splits,shuffle=self.shuffle,
+                    random_state=self.random_state,mapping=self.mapping)
+        return params
     def _iter_test_indices(self, X, y=None, groups=None):
         #frameid2environmentid = self.mapping
         n_samples = _num_samples(self.mapping)
@@ -33,14 +55,16 @@ class EnvironmentalKFold(_BaseKFold):
             yield ids
             current = stop
 
-
 class EnvironmentalShuffleSplit(BaseShuffleSplit):
     def __init__(self, n_splits=3, shuffle=True,random_state=10,mapping=None,train_size=None,test_size="default"):
         if mapping is None or train_size is None:
             raise ValueError('a mapping or number of training frames should be provided')
         super(EnvironmentalShuffleSplit, self).__init__(n_splits,test_size,train_size,random_state)
         self.mapping = mapping
-        
+    def get_params(self):
+        params = dict(n_splits=self.n_splits,test_size=self.test_size,train_size=self.train_size,
+                        random_state=self.random_state,mapping=self.mapping)
+        return params
     def _iter_indices(self, X, y=None, groups=None):
         n_samples = _num_samples(self.mapping)
         n_train, n_test = _validate_shuffle_split(n_samples,self.test_size,self.train_size)
@@ -55,7 +79,6 @@ class EnvironmentalShuffleSplit(BaseShuffleSplit):
             for it in permutation[n_test:(n_test + n_train)]:
                 ind_train.extend(self.mapping[it])
             yield ind_train, ind_test
-    
 
 class LCSplit(with_metaclass(ABCMeta)):
     def __init__(self, cv, n_repeats=[10],train_sizes=[10],test_size="default", random_state=None, **cvargs):
@@ -74,7 +97,12 @@ class LCSplit(with_metaclass(ABCMeta)):
         self.random_state = random_state
         self.cvargs = cvargs
         self.test_size = test_size
-        
+    
+    def get_params(self):
+        params = dict(cv=self.cv.get_params(),n_repeats=self.n_repeats,train_sizes=self.train_sizes,
+                     test_size=self.test_size,random_state=self.random_state,cvargs=self.cvargs)
+        return params
+
     def split(self, X, y=None, groups=None):
         """Generates indices to split data into training and test set.
         Parameters
