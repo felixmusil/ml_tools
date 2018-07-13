@@ -1,11 +1,9 @@
 import numpy as np
 from scipy.linalg import cholesky, cho_solve, solve_triangular,cho_factor
-from ..base import TrainerBase,KernelBase
+from ..base import TrainerBase,RegressorBase
 
 
-
-
-class KRR(KernelBase):
+class KRR(RegressorBase):
     _pairwise = True
     
     def __init__(self,sigma,trainer):
@@ -13,9 +11,6 @@ class KRR(KernelBase):
         self.alpha = None
         self.sigma = sigma
         self.trainer = trainer
-    
-    def get_name(self):
-        return type(self).__name__
     
     def fit(self,kernel,y):
         '''Train the krr model with trainKernel and trainLabel.'''

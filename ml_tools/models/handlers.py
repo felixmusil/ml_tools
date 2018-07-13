@@ -35,7 +35,7 @@ class HashJsonHandler(object):
     _data_extensions = {'npy':('npy',np.save,np.load),'pck':('pck',dump_pck,load_pck)}
     _metadata_fn_template = Template('${name}-${hash1}_${hash2}-${count}.${extension}')
     _data_fn_template = Template('${name}-${hash1}.${extension}')
-    
+     
     def __init__(self,path,restart=True,check_restart_file=True):
         self.check_restart_file = check_restart_file
         self.path = check_dir(path)
@@ -55,10 +55,12 @@ class HashJsonHandler(object):
         ## try to find some metadata files to restart from
         for ii,(step_name,step) in enumerate(steps):
             params = step.get_params()
+            print step_name,isinstance(step,KernelBase)
             if isinstance(step,KernelBase) is True: 
                 # if this step is a kernel then the previous step has X_train. 
                 # The kernel can't be first in the pipeline
                 global_data_json_fns['X_train'] = ('output',restart_json_fns[-1])
+                print global_data_json_fns['X_train']
             
             inp_param_hash = hash(params)
             checksum += inp_param_hash

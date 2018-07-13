@@ -1,11 +1,9 @@
-
-from sklearn.base import BaseEstimator, RegressorMixin
-from ..base import KernelBase
+from ..base import KernelBase,RegressorBase
 from ..io_utils import check_dir,dump_pck,load_pck,dump_json,load_json,check_file
 from copy import deepcopy
 import importlib
 
-class RegressorPipeline(BaseEstimator,RegressorMixin):
+class RegressorPipeline(RegressorBase):
     def __init__(self,steps=None,handler=None):
         if steps is None and handler is None:
             pass
@@ -16,9 +14,7 @@ class RegressorPipeline(BaseEstimator,RegressorMixin):
             
         self.handler = handler
         self.X_train = None
-        
-    def get_name(self):
-        return type(self).__name__
+    
     
     def fit(self,X,y):
         X,steps,global_data = self.handler.find_restart_checkpoint(X,self.steps)

@@ -21,7 +21,7 @@ class KernelPower(KernelBase):
     def transform(self,X,X_train=None):
         if X_train is None:
             return self(X)
-        else:
+        else: 
             return self(X,Y=X_train)
         
     def __call__(self, X, Y=None, eval_gradient=False):
