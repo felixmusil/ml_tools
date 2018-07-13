@@ -14,7 +14,6 @@ class EnvironmentalKFold(_BaseKFold):
             raise ValueError('a mapping should be provided')
         super(EnvironmentalKFold, self).__init__(n_splits, shuffle, random_state)
         self.mapping = mapping
-        
     def _iter_test_indices(self, X, y=None, groups=None):
         #frameid2environmentid = self.mapping
         n_samples = _num_samples(self.mapping)
