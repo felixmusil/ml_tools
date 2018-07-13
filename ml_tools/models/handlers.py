@@ -63,16 +63,14 @@ class HashJsonHandler(object):
             inp_param_hash = hash(params)
             checksum += inp_param_hash
             fns = glob(self.get_metadata_fn(step_name,inp_param_hash,all_possible=True))
-            print step_name
+            
             if len(fns) > 0: # if there are some matching files, compare the checksum 
                 found = False
-                print fns
+                
                 for fn in fns:
                     metadata = JsonMetadata()
                     metadata.load(fn)
-                    print metadata.get_data()
-                    print metadata['checksum']
-                    print checksum
+                    
                     if metadata['checksum'] == checksum:
                         restart_json_fns.append(fn)
                         
@@ -144,8 +142,6 @@ class HashJsonHandler(object):
             state_package = self.get_data(fn,fieldname='state')
             steps[ii][-1].unpack(state_package)
         
-        print 'aa'
-        print restart_json_fns,global_data_json_fns
         ## load the output of the last checkpoint
         if restart_idx < len(steps): 
             # if the last checkpoint is after the model fit then there is no output
