@@ -15,7 +15,7 @@ import struct
 import io
 import decimal
 
-from _compat import _bytes_or_unicode, PY3_OR_LATER
+from ._compat import _bytes_or_unicode, PY3_OR_LATER
 
 
 if PY3_OR_LATER:

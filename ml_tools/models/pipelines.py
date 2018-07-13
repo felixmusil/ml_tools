@@ -1,7 +1,7 @@
 
 from sklearn.base import BaseEstimator, RegressorMixin
 from ..base import KernelBase
-from ..io import check_dir,dump_pck,load_pck,dump_json,load_json,check_file
+from ..io_utils import check_dir,dump_pck,load_pck,dump_json,load_json,check_file
 from copy import deepcopy
 import importlib
 
