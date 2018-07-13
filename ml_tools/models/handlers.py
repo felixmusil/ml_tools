@@ -6,7 +6,7 @@ from time import ctime
 import os.path as osp
 from ..base import KernelBase
 from glob import glob
-
+from ..hasher import hash
 
 class JsonMetadata(object):
     

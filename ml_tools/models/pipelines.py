@@ -40,7 +40,7 @@ class RegressorPipeline(BaseEstimator,RegressorMixin):
         
     def predict(self,X):
         for name,preprocessor in self.steps[:-1]:
-            print name
+            #print name
             if isinstance(preprocessor,KernelBase):
                 X = preprocessor.transform(X,X_train=self.X_train)
             else:
