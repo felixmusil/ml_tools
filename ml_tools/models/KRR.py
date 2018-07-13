@@ -1,94 +1,78 @@
 import numpy as np
-from scipy.linalg import cho_factor,cho_solve
-from ..utils import make_new_dir
-import os 
+from scipy.linalg import cholesky, cho_solve, solve_triangular,cho_factor
+from ..base import TrainerBase,KernelBase
 
-def dummy(a):
-    return a
 
-def unpack_power_kernel_params(kernel_params):
-    zeta = kernel_params[0]
-    return zeta
 
-def get_power_kernel(X1,X2=None,kernel_params=None):
-    zeta = unpack_power_kernel_params(kernel_params)
-    if X2 is None:
-        X2 = X1
-    kernel = np.empty((X1.shape[0],X2.shape[0]))
-    np.dot(X1,X2.T,out=kernel)
-    np.power(kernel,zeta,out=kernel)
-    return kernel
 
-class KRR(object):
-    def __init__(self,model_params=None,kernel_params=None,save_intermediates=False,
-                      func=None,invfunc=None,memory_eff=False,dirname=None):
-        if dirname is None:
-            self.model_params = model_params
-            self.kernel_params = kernel_params
-            if func is None or invfunc is None:
-                self.func = dummy
-                self.invfunc = dummy
-            else:
-                self.func = func
-                self.invfunc = invfunc
-            # Weights of the krr model
-            self.alpha = None
-            self.memory_eff = memory_eff
-        else:
-            self.load(dirname)
-
-    def fit(self,feature_matrix,labels,kernel_func=None,kernel=None):
-        '''Train the krr model with feature matrix and trainLabel.'''
-        if kernel_func is None:
-            kernel_func = get_power_kernel
-        
-        if kernel is None:
-            self.memory_eff = True
-            kernel = kernel_func(feature_matrix,**self.kernel_params)
-        # learn a function of the label
-        trainLabel = self.func(labels)
-
+class KRR(KernelBase):
+    _pairwise = True
+    
+    def __init__(self,sigma,trainer):
+        # Weights of the krr model
+        self.alpha = None
+        self.sigma = sigma
+        self.trainer = trainer
+    
+    def get_name(self):
+        return type(self).__name__
+    
+    def fit(self,kernel,y):
+        '''Train the krr model with trainKernel and trainLabel.'''
+        #self.X_train = X
+        #kernel = self.kernel(X)
         diag = kernel.diagonal().copy()
-        self.lower = False
-        reg = np.multiply(np.multiply(self.sigma ** 2, np.mean(diag)), np.var(trainLabel))
-        # Effective regularization
-        self.reg = reg
-        if self.memory_eff:
-            # kernel is modified here
-            np.fill_diagonal(np.power(kernel, self.zeta, out=kernel),
-                                np.add(np.power(diag,self.zeta,out=diag), reg,out=diag))
+        reg = np.ones(diag.shape)*np.divide(np.multiply(self.sigma ** 2, np.mean(diag)), np.var(y))
+        self.regularization = reg
+        self.alpha = self.trainer.fit(kernel,y,regularization=reg)
+        
+    def predict(self,kernel):
+        '''kernel.shape is expected as (nPred,nTrain)'''
+        #kernel = self.kernel(X,self.X_train)
+        return np.dot(kernel,self.alpha.flatten()).reshape((-1))
+    def get_params(self,deep=True):
+        return dict(sigma=self.sigma,trainer=self.trainer)
+      
+    def pack(self):
+        state = dict(weights=self.alpha,trainer=self.trainer.pack(),
+                     regularization=self.regularization,sigma=self.sigma)
+        return state
+    def unpack(self,state):
+        self.alpha = state['weights']
+        self.trainer.unpack(state['trainer'])
+        self.regularization = state['regularization']
+        err_m = 'sigma are not consistent {} != {}'.format(self.sigma,state['sigma'])
+        assert self.sigma == state['sigma'], err_m
+    def loads(self,state):
+        self.alpha = state['weights']
+        self.trainer.loads(state['trainer'])
+        self.regularization = state['regularization']
+        self.sigma = state['sigma']
 
-            kernel, lower = cho_factor(kernel, lower=self.lower, overwrite_a=True, check_finite=False)
+class TrainerCholesky(TrainerBase):
+    def __init__(self,memory_efficient):
+        self.memory_eff = memory_efficient
+    def fit(self,kernel,y,regularization):
+        """ len(y) == len(reg)"""
+        reg = regularization
+        diag = kernel.diagonal().copy() 
+        if self.memory_eff:
+            np.fill_diagonal(kernel,np.add(diag, reg,out=diag))
+            kernel, lower = cho_factor(kernel, lower=False, overwrite_a=True, check_finite=False)
             L = kernel
         else:
-            # kernel is not modified here
-            reg = np.diag(reg)
-            L, lower = cho_factor(np.power(kernel, self.zeta) + reg, lower=self.lower, overwrite_a=False,check_finite=False)
+            L, lower = cho_factor(kernel + np.diag(reg), lower=False, overwrite_a=False,check_finite=False)
+        alpha = cho_solve((L, lower), y ,overwrite_b=False).reshape((1,-1))
+        return alpha
 
-        # set the weights of the krr model
-        self.alpha = cho_solve((L, lower), trainLabel,overwrite_b=False).reshape((1,-1))
-
-    def predict(self,kernel):
-        '''kernel.shape is expected as (nTrain,nPred)'''
-        if self.memory_eff:
-            # kernel is modified in place here
-            return self.invfunc(np.dot(self.alpha, np.power(kernel,self.zeta,out=kernel) ) ).reshape((-1))
-        else:
-            # kernel is not modified here
-            return self.invfunc(np.dot(self.alpha, np.power(kernel,self.zeta) ) ).reshape((-1))
-      
-    def save(self,fn):
-        dirname = os.path.dirname(fn)
-        new_dirname = make_new_dir(dirname)
-        np.save(new_dirname+'/params.npy',dict(func=self.func,invfunc=self.invfunc,self.model_params,
-                                             memory_eff=self.memory_eff,kernel_params=self.kernel_params))
-        np.save(new_dirname+'/weights.npy',self.alpha)
-        
-        
-    def load(self,dirname):
-        params = np.load(dirname+'params.npy').item()
-        self.func,self.invfunc,self.memory_eff,self.kernel_params,self.model_params = \
-            params['func'],params['invfunc'],params['memory_eff'],params['kernel_params'],params['model_params']
-        self.zeta = self.kernel_params[0]
-        self.sigma = self.model_params[0]
-        self.alpha = np.load(dirname+'weights.npy')
+    def get_params(self,deep=True):
+        return dict(memory_efficient=self.memory_eff)
+    
+    def pack(self):
+        state = dict(memory_efficient=self.memory_eff)
+        return state
+    def unpack(self,state):
+        err_m = 'memory_eff are not consistent {} != {}'.format(self.memory_eff,state['memory_efficient'])
+        assert self.memory_eff == state['memory_efficient'], err_m
+    def loads(self,state):
+        self.memory_eff = state['memory_efficient']
