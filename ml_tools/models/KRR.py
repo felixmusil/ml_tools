@@ -27,7 +27,12 @@ class KRR(RegressorBase):
         return np.dot(kernel,self.alpha.flatten()).reshape((-1))
     def get_params(self,deep=True):
         return dict(sigma=self.sigma,trainer=self.trainer)
-      
+        
+    def set_params(self,params,deep=True):
+        self.sigma = params['sigma']
+        self.trainer = params['trainer']
+        self.alpha = None
+
     def pack(self):
         state = dict(weights=self.alpha,trainer=self.trainer.pack(),
                      regularization=self.regularization,sigma=self.sigma)

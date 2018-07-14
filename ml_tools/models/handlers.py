@@ -1,4 +1,3 @@
-
 from ..io_utils import check_dir,dump_pck,load_pck,dump_json,load_json,check_file
 import numpy as np
 from string import Template 
@@ -43,6 +42,10 @@ class HashJsonHandler(object):
         self.checksum = ''
         self.metadata_dir = check_dir(osp.join(self.path,self._metadata_prefix))
         self.data_dir = check_dir(osp.join(self.path,self._data_prefix))
+    
+    def reset(self):
+        self.base_input_hash = None
+        self.checksum = ''
         
     def set_base_input_hash(self,inp):
         self.base_input_hash = hash(inp)
@@ -65,28 +68,23 @@ class HashJsonHandler(object):
             inp_param_hash = hash(params)
             checksum += inp_param_hash
             fns = glob(self.get_metadata_fn(step_name,inp_param_hash,all_possible=True))
-            
+            found = False
             if len(fns) > 0: # if there are some matching files, compare the checksum 
-                found = False
-                
                 for fn in fns:
                     metadata = JsonMetadata()
                     metadata.load(fn)
-                    
                     if metadata['checksum'] == checksum:
                         restart_json_fns.append(fn)
-                        
                         self.checksum = metadata['checksum']
                         found = True
+                        break
                         
-                if found is False: # matching files don't have the proper checksum
-                    return restart_json_fns,global_data_json_fns
-            else: # there are no matching files so return
+            if found is False: # matching files don't have the proper checksum
                 if ii == 0: # There are no files to restart from
                     return None,None
                 else: # at least one file to restart from
                     return restart_json_fns,global_data_json_fns
-        
+                                
         return restart_json_fns,global_data_json_fns
         
     def create_checkpoint(self,step_name,step,output=None):
@@ -154,6 +152,7 @@ class HashJsonHandler(object):
         
         for k,(fieldname,fn) in global_data_json_fns.iteritems():
             global_data[k] = self.get_data(fn,fieldname=fieldname)
+        
         
         return previous_output,steps[restart_idx:],global_data
     

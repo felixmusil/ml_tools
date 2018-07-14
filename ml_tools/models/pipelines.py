@@ -21,7 +21,7 @@ class RegressorPipeline(RegressorBase):
         
         if 'X_train' in global_data:
             self.X_train = global_data['X_train']
-                
+        
         if len(steps) > 0: # if all the steps not already loaded
             for name,preprocessor in steps[:-1]:
                 if isinstance(preprocessor,KernelBase):
