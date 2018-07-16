@@ -69,7 +69,6 @@ class GridSearch(object):
         self.results = []
         for steps in tqdm_cs(self.steps_grid,disable=self.disable_pbar):
             #for name,step in steps
-            print steps
             steps_init = [(name,step['obj'](**step['params'])) for name,step in steps]
             self.handler.reset()
             model = RegressorPipeline(steps_init,self.handler)
