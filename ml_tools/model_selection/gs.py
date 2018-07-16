@@ -1,5 +1,6 @@
 from  itertools import product
 from ..utils import tqdm_cs
+from ..models.pipelines import RegressorPipeline
 
 class StepsGrid(object):
     def __init__(self,steps):
