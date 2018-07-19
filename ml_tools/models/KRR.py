@@ -6,55 +6,54 @@ from ..base import TrainerBase,RegressorBase
 class KRR(RegressorBase):
     _pairwise = True
     
-    def __init__(self,sigma,trainer):
+    def __init__(self,jitter,trainer):
         # Weights of the krr model
         self.alpha = None
-        self.sigma = sigma
+        self.jitter = jitter
         self.trainer = trainer
     
     def fit(self,kernel,y):
         '''Train the krr model with trainKernel and trainLabel.'''
         #self.X_train = X
         #kernel = self.kernel(X)
-        diag = kernel.diagonal().copy()
-        reg = np.ones(diag.shape)*np.divide(np.multiply(self.sigma ** 2, np.mean(diag)), np.var(y))
-        self.regularization = reg
-        self.alpha = self.trainer.fit(kernel,y,regularization=reg)
+        #diag = kernel.diagonal().copy()
+        #reg = np.ones(diag.shape)*np.divide(np.multiply(self.jitter  ** 2, np.mean(diag)), np.var(y))
+        reg = np.ones((kernel.shape[0],))*self.jitter
+        
+        self.alpha = self.trainer.fit(kernel,y,jitter=reg)
         
     def predict(self,kernel):
         '''kernel.shape is expected as (nPred,nTrain)'''
         #kernel = self.kernel(X,self.X_train)
         return np.dot(kernel,self.alpha.flatten()).reshape((-1))
     def get_params(self,deep=True):
-        return dict(sigma=self.sigma,trainer=self.trainer)
+        return dict(sigma=self.jitter ,trainer=self.trainer)
         
     def set_params(self,params,deep=True):
-        self.sigma = params['sigma']
+        self.jitter  = params['jitter']
         self.trainer = params['trainer']
         self.alpha = None
 
     def pack(self):
         state = dict(weights=self.alpha,trainer=self.trainer.pack(),
-                     regularization=self.regularization,sigma=self.sigma)
+                     jitter=self.jitter )
         return state
     def unpack(self,state):
         self.alpha = state['weights']
         self.trainer.unpack(state['trainer'])
-        self.regularization = state['regularization']
-        err_m = 'sigma are not consistent {} != {}'.format(self.sigma,state['sigma'])
-        assert self.sigma == state['sigma'], err_m
+        err_m = 'jitter are not consistent {} != {}'.format(self.jitter ,state['jitter'])
+        assert self.jitter  == state['jitter'], err_m
     def loads(self,state):
         self.alpha = state['weights']
         self.trainer.loads(state['trainer'])
-        self.regularization = state['regularization']
-        self.sigma = state['sigma']
+        self.jitter  = state['jitter']
 
 class TrainerCholesky(TrainerBase):
     def __init__(self,memory_efficient):
         self.memory_eff = memory_efficient
-    def fit(self,kernel,y,regularization):
+    def fit(self,kernel,y,jitter):
         """ len(y) == len(reg)"""
-        reg = regularization
+        reg = jitter
         diag = kernel.diagonal().copy() 
         if self.memory_eff:
             np.fill_diagonal(kernel,np.add(diag, reg,out=diag))
