@@ -58,7 +58,7 @@ def get_Nsoap(spkitMax,nmax,lmax):
 
 def get_rawsoap(frame,soapstr,nocenters, global_species, rc, nmax, lmax,awidth,
                 centerweight,cutoff_transition_width, 
-                 cutoff_dexp, cutoff_scale):
+                 cutoff_dexp, cutoff_scale,cutoff_rate):
     frame = ase2qp(frame)
     frame.set_cutoff(rc)
     frame.calc_connect()
@@ -80,7 +80,7 @@ def get_rawsoap(frame,soapstr,nocenters, global_species, rc, nmax, lmax,awidth,
         centers.append(str(z))
     centers = '{'+' '.join(centers)+'} '
     
-    soapstr2 = soapstr.substitute(nspecies=nspecies, ncentres=ncentres,
+    soapstr2 = soapstr.substitute(nspecies=nspecies, ncentres=ncentres,cutoff_rate=cutoff_rate,
                                   species=global_speciesstr, centres=centers,
                                   cutoff_transition_width=cutoff_transition_width,
                                  rc=rc, nmax=nmax, lmax=lmax, awidth=awidth,cutoff_dexp=cutoff_dexp, 
@@ -91,11 +91,11 @@ def get_rawsoap(frame,soapstr,nocenters, global_species, rc, nmax, lmax,awidth,
 
 class RawSoapQUIP(AtomicDescriptorBase):
     def __init__(self,global_species=None,nocenters=None,rc=None, nmax=None, 
-                 lmax=None, awidth=None,centerweight=None,cutoff_transition_width=None, 
+                 lmax=None, awidth=None,centerweight=None,cutoff_transition_width=None, cutoff_rate=None,
                  cutoff_dexp=None, cutoff_scale=None,fast_avg=False,is_sparse=False,disable_pbar=False):
         if global_species is None and rc is None:
             pass
-        self.soap_params = dict(rc=rc, nmax=nmax, lmax=lmax, awidth=awidth,
+        self.soap_params = dict(rc=rc, nmax=nmax, lmax=lmax, awidth=awidth,cutoff_rate=cutoff_rate,
                                 cutoff_transition_width=cutoff_transition_width,
                                 cutoff_dexp=cutoff_dexp, cutoff_scale=cutoff_scale,
                                 centerweight=centerweight,global_species=global_species,
@@ -119,11 +119,12 @@ class RawSoapQUIP(AtomicDescriptorBase):
 
         Nenv = strides[-1]
 
-        soapstr = Template(' '.join(['average=F normalise=T soap cutoff_dexp=$cutoff_dexp',
+        soapstr = Template(' '.join(['average=F normalise=T soap cutoff_dexp=$cutoff_dexp cutoff_rate=$cutoff_rate ',
                             'cutoff_scale=$cutoff_scale central_reference_all_species=F',
                             'central_weight=$centerweight covariance_sigma0=0.0 atom_sigma=$awidth',
                             'cutoff=$rc cutoff_transition_width=$cutoff_transition_width n_max=$nmax l_max=$lmax', 
                             'n_species=$nspecies species_Z=$species n_Z=$ncentres Z=$centres']))
+        
         
         Nsoap = get_Nsoap(self.soap_params['global_species'],self.soap_params['nmax'],
                           self.soap_params['lmax'])

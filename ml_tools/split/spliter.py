@@ -97,6 +97,7 @@ class LCSplit(with_metaclass(ABCMeta)):
         self.random_state = random_state
         self.cvargs = cvargs
         self.test_size = test_size
+        self.n_splits = np.sum(n_repeats)
     
     def get_params(self):
         params = dict(cv=self.cv.get_params(),n_repeats=self.n_repeats,train_sizes=self.train_sizes,
