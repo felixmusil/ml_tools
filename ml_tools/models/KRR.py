@@ -75,3 +75,59 @@ class TrainerCholesky(TrainerBase):
         assert self.memory_eff == state['memory_efficient'], err_m
     def loads(self,state):
         self.memory_eff = state['memory_efficient']
+
+
+class KRRFastCV(RegressorBase):
+    """ 
+    taken from:
+    An, S., Liu, W., & Venkatesh, S. (2007). 
+    Fast cross-validation algorithms for least squares support vector machine and kernel ridge regression. 
+    Pattern Recognition, 40(8), 2154-2162. https://doi.org/10.1016/j.patcog.2006.12.015
+    """
+    _pairwise = True
+    
+    def __init__(self,jitter,cv):
+        self.jitter = jitter
+        self.cv = cv
+    
+    def fit(self,kernel,y):
+        '''Train the krr model with trainKernel and trainLabel.'''
+        Q = kernel + np.diag(self.jitter*np.ones(kernel.shape[0]))
+        Q_inv = np.linalg.inv(Q)
+        alpha = np.dot(Q_inv,y)
+        Cii = []
+        beta = np.zeros(alpha.shape)
+        self.y_pred = np.zeros(y.shape)
+        self.error = np.zeros(y.shape)
+        for _,test in self.cv.split(kernel):
+            Cii = Q_inv[np.ix_(test,test)]
+            beta = np.linalg.solve(Cii,alpha[test])
+            self.y_pred[test] = y[test] - beta
+            self.error[test] = beta
+        
+    def predict(self,kernel=None):
+        '''kernel.shape is expected as (nPred,nTrain)'''
+        #kernel = self.kernel(X,self.X_train)
+        return self.y_pred
+
+    def get_params(self,deep=True):
+        return dict(sigma=self.jitter ,cv=self.cv)
+        
+    def set_params(self,params,deep=True):
+        self.jitter  = params['jitter']
+        self.cv = params['cv']
+        self.y_pred = None
+
+    def pack(self):
+        state = dict(y_pred=self.y_pred,cv=self.cv.pack(),
+                     jitter=self.jitter )
+        return state
+    def unpack(self,state):
+        self.y_pred = state['y_pred']
+        self.cv.unpack(state['cv'])
+        err_m = 'jitter are not consistent {} != {}'.format(self.jitter ,state['jitter'])
+        assert self.jitter  == state['jitter'], err_m
+    def loads(self,state):
+        self.y_pred = state['y_pred']
+        self.cv.loads(state['cv'])
+        self.jitter  = state['jitter']
