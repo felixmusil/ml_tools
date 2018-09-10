@@ -75,3 +75,6 @@ def ase2qp(aseatoms):
     numbers = aseatoms.get_atomic_numbers()
     pbc = aseatoms.get_pbc()
     return qpAtoms(numbers=numbers,cell=cell,positions=positions,pbc=pbc)
+
+
+    
