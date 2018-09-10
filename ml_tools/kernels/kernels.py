@@ -44,6 +44,47 @@ class KernelPower(KernelBase):
         self.delta = state['delta']
 
 
+class KernelSum(KernelBase):
+    def __init__(self,kernel):
+        self.kernel = kernel
+        
+    def fit(self,X):   
+        return self
+    def get_params(self,deep=True):
+        params = dict(kernel=self.kernel,strides=self.strides)
+        return params
+    def set_params(self,**params):
+        self.kernel = params['kernel']
+        self.delta = self.kernel.delta
+        self.strides = params['strides']
+        
+    def transform(self,X,X_train=None):
+        Xfeat,Xstrides = X['feature_matrix'], X['strides']
+        
+        if X_train is not None:
+            Yfeat,Ystrides = X_train['feature_matrix'], X_train['strides']
+        else:
+            Yfeat,Ystrides = None,Xstrides
+
+        N = len(Xstrides)-1
+        M = len(Ystrides)-1
+
+        envKernel = self.kernel(Xfeat,Yfeat)
+        
+        K = np.zeros((N,M))
+        for ii,(ist,ind) in enumerate(zip(Xstrides[:-1],Xstrides[1:])):
+            for jj,(jst,jnd) in enumerate(zip(Ystrides[:-1],Ystrides[1:])):
+                K[ii,jj] = np.mean(envKernel[ist:ind,jst:jnd])
+        return K
+
+    def pack(self):
+        state = self.get_params()
+        return state
+    def unpack(self,state):
+        pass
+    
+    def loads(self,state):
+        self.set_params(state)
 
 class KernelSparseSoR(KernelBase):
     def __init__(self,kernel,pseudo_input_ids=None):
