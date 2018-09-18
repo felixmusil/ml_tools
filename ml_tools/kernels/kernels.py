@@ -102,9 +102,13 @@ class KernelSparseSoR(KernelBase):
         self.delta = self.kernel.delta
         self.pseudo_input_ids = params['pseudo_input_ids']
         
-    def transform(self,X,y=None,X_train=None):
+    def transform(self,X,y=None,X_train=None,X_pseudo=None):
         if X_train is None and isinstance(X,dict) is False and y is not None:
-            Xs = X[self.pseudo_input_ids]
+            if X_pseudo is None:
+                Xs = X[self.pseudo_input_ids]
+            else:
+                Xs = X_pseudo
+
             kMM = self.kernel(Xs,Y=Xs)
             kMN = self.kernel(Xs,Y=X)
             ## assumes Lambda= delta**2*np.diag(np.ones(n))
@@ -112,6 +116,7 @@ class KernelSparseSoR(KernelBase):
             sparseY = np.dot(kMN,y)/self.delta**2
 
             return sparseK,sparseY
+
         else: 
             return self.kernel(X,Y=X_train)
 

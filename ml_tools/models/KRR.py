@@ -101,9 +101,9 @@ class KRRFastCV(RegressorBase):
         self.error = np.zeros(y.shape)
         for _,test in self.cv.split(kernel):
             Cii = Q_inv[np.ix_(test,test)]
-            beta = np.linalg.solve(Cii,alpha[test])
+            beta = np.linalg.solve(Cii,alpha[test]) 
             self.y_pred[test] = y[test] - beta
-            self.error[test] = beta
+            self.error[test] = beta # beta = y_true - y_pred 
         
     def predict(self,kernel=None):
         '''kernel.shape is expected as (nPred,nTrain)'''

@@ -43,26 +43,41 @@ def get_sum(*args):
     sss = np.sum(args,axis=0)
     return sss
 
-def get_shift_local(fn):
+def get_shift_local(fn,is_scalar=True):
     core = extract_shift_contribution('core',fn)
     bare = extract_shift_contribution('bare',fn)
     para = extract_shift_contribution('para',fn)
     para_oo = extract_shift_contribution('para_oo',fn)
     para_lq = extract_shift_contribution('para_lq',fn)
     dia = extract_shift_contribution('dia',fn)
-    iso = []
-    for a,b,c,d,e,f in zip(core, bare, para, dia, para_oo, para_lq):
-        iso.append(get_isotropic(get_sum(a,b,c,d,e,f)))
-    out = np.round(iso,decimals=2)
-    return out
-def get_shift_maroscopic(fn):
+
+    if is_scalar is True:
+        iso = []
+        for a,b,c,d,e,f in zip(core, bare, para, dia, para_oo, para_lq):
+            iso.append(get_isotropic(get_sum(a,b,c,d,e,f)))
+        out = np.round(iso,decimals=2)
+        return out
+    else:
+        tensor = []
+        for a,b,c,d,e,f in zip(core, bare, para, dia, para_oo, para_lq):
+            tensor.append(get_sum(a,b,c,d,e,f))
+        return np.array(tensor)
+def get_shift_maroscopic(fn,is_scalar=True):
     macro = extract_shift_contribution('Macroscopic shape',fn)
-    iso = get_isotropic(macro)
-    out = np.array([np.round(iso,decimals=2)])
-    return out
-def get_shift_total(fn):
-    total = map(get_isotropic,extract_shift_contribution('Total',fn))
-    out = np.round(total,decimals=2)
-    return out
+    if is_scalar is True:
+        iso = get_isotropic(macro)
+        out = np.array([np.round(iso,decimals=2)])
+        return out
+    else:
+        return np.array(macro)
+def get_shift_total(fn,is_scalar=True):
+    aa = extract_shift_contribution('Total',fn)
+    if is_scalar is True:
+        total = map(get_isotropic,aa)
+        out = np.round(total,decimals=2)
+        return out
+    else:
+        tensor = np.array(aa)
+        return tensor
 
     
