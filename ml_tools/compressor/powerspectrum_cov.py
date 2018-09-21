@@ -45,7 +45,7 @@ class CompressorCovarianceUmat(BaseEstimator,TransformerMixin):
         else:
             X_c = X
         
-        self.u_mat = get_covariance_umat(X_c,self.dj,self.fj)
+        self.u_mat_full, self.eig = get_covariance_umat_full(X_c)
         
         return self
     
@@ -54,30 +54,45 @@ class CompressorCovarianceUmat(BaseEstimator,TransformerMixin):
             X_c = self.reshape_(X)
         else:
             X_c = X
-        return get_compressed_soap(X_c,self.u_mat,symmetric=self.symmetric)
+        
+        if self.fj is not None:
+            u_mat = np.dot(self.fj,self.u_mat_full[:self.dj,:])
+            #u_mat = np.einsum("ja,j->ja",self.u_mat_full[:self.dj,:],self.fj,optimize='optimal')
+        else:
+            u_mat = self.u_mat_full[:self.dj,:]
+        
+        return get_compressed_soap(X_c,u_mat,symmetric=self.symmetric)
     
     def fit_transform(self,X):
         if self.to_reshape:
             X_c = self.reshape_(X)
         else:
             X_c = X
-        #print X_c.shape
-        self.u_mat = get_covariance_umat(X_c,self.dj,self.fj)
-        return get_compressed_soap(X_c,self.u_mat,symmetric=self.symmetric)
+
+        self.u_mat_full,self.eig = get_covariance_umat_full(X_c)
+        if self.fj is not None:
+            u_mat = np.dot(self.fj,self.u_mat_full[:self.dj,:])
+            #u_mat = np.einsum("ja,j->ja",self.u_mat_full[:self.dj,:],self.fj,optimize='optimal')
+        else:
+            u_mat = self.u_mat_full[:self.dj,:]
+        
+        return get_compressed_soap(X_c,u_mat,symmetric=self.symmetric)
 
     def pack(self):
-        state = dict(u_mat=self.u_mat.tolist(),trainer=self.trainer.pack(),
-                     jitter=self.jitter,delta=self.delta )
+        params = self.get_params()
+        data = dict(u_mat_full=self.u_mat_full.tolist(),
+                    eig=self.eig.tolist())
+        state = dict(data=data,
+                     params=params)
         return state
 
     def unpack(self,state):
-        self.alpha = state['weights']
-        self.delta = state['delta']
-        self.trainer.unpack(state['trainer'])
-        err_m = 'jitter are not consistent {} != {}'.format(self.jitter ,state['jitter'])
-        assert self.jitter  == state['jitter'], err_m
+        self.set_params(state['params'])
+        self.u_mat_full = np.array(state['data']['u_mat_full'])
+        self.eig = np.array(state['data']['eig'])
 
-def get_covariance_umat(unlinsoap,dj,fj=None):
+    
+def get_covariance_umat_full(unlinsoap):
     '''
     Compute the covariance of the given unlinsoap and decomposes it 
     unlinsoap.shape = (Nsoap,Nfull,Nfull,nn)
@@ -87,11 +102,8 @@ def get_covariance_umat(unlinsoap,dj,fj=None):
     eva = np.flip(eva,axis=0)
     eve = np.flip(eve,axis=1)
     #eve = eve*np.sqrt(eva).reshape((1,-1))
-    if fj is not None:
-        u_mat = np.einsum("aj,j->aj",eve[:,:dj],fj,optimize='optimal')
-    else:
-        u_mat = eve[:,:dj]
-    return u_mat.T
+
+    return eve.T,eva.flatten()
 
 
 def get_compressed_soap(unlinsoap,u_mat,symmetric=False,lin_out=True):
