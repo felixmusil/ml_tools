@@ -6,11 +6,12 @@ from ..base import TrainerBase,RegressorBase
 class KRR(RegressorBase):
     _pairwise = True
     
-    def __init__(self,jitter,trainer):
+    def __init__(self,jitter,delta,trainer):
         # Weights of the krr model
         self.alpha = None
         self.jitter = jitter
         self.trainer = trainer
+        self.delta = delta
     
     def fit(self,kernel,y):
         '''Train the krr model with trainKernel and trainLabel.'''
@@ -20,26 +21,28 @@ class KRR(RegressorBase):
         #reg = np.ones(diag.shape)*np.divide(np.multiply(self.jitter  ** 2, np.mean(diag)), np.var(y))
         reg = np.ones((kernel.shape[0],))*self.jitter
         
-        self.alpha = self.trainer.fit(kernel,y,jitter=reg)
+        self.alpha = self.trainer.fit(self.delta**2*kernel,y,jitter=reg)
         
     def predict(self,kernel):
         '''kernel.shape is expected as (nPred,nTrain)'''
         #kernel = self.kernel(X,self.X_train)
-        return np.dot(kernel,self.alpha.flatten()).reshape((-1))
+        return np.dot(self.delta**2*kernel,self.alpha.flatten()).reshape((-1))
     def get_params(self,deep=True):
-        return dict(sigma=self.jitter ,trainer=self.trainer)
+        return dict(sigma=self.jitter ,trainer=self.trainer,delta=self.delta)
         
     def set_params(self,params,deep=True):
         self.jitter  = params['jitter']
         self.trainer = params['trainer']
+        self.delta = params['delta']
         self.alpha = None
 
     def pack(self):
         state = dict(weights=self.alpha,trainer=self.trainer.pack(),
-                     jitter=self.jitter )
+                     jitter=self.jitter,delta=self.delta )
         return state
     def unpack(self,state):
         self.alpha = state['weights']
+        self.delta = state['delta']
         self.trainer.unpack(state['trainer'])
         err_m = 'jitter are not consistent {} != {}'.format(self.jitter ,state['jitter'])
         assert self.jitter  == state['jitter'], err_m
@@ -47,6 +50,8 @@ class KRR(RegressorBase):
         self.alpha = state['weights']
         self.trainer.loads(state['trainer'])
         self.jitter  = state['jitter']
+        self.delta = state['delta']
+
 
 class TrainerCholesky(TrainerBase):
     def __init__(self,memory_efficient):
@@ -54,14 +59,17 @@ class TrainerCholesky(TrainerBase):
     def fit(self,kernel,y,jitter):
         """ len(y) == len(reg)"""
         reg = jitter
-        diag = kernel.diagonal().copy() 
+        
         if self.memory_eff:
-            np.fill_diagonal(kernel,np.add(diag, reg,out=diag))
+            kernel[np.diag_indices_from(kernel)] += reg
             kernel, lower = cho_factor(kernel, lower=False, overwrite_a=True, check_finite=False)
             L = kernel
+            alpha = cho_solve((L, lower), y ,overwrite_b=False).reshape((1,-1))
         else:
-            L, lower = cho_factor(kernel + np.diag(reg), lower=False, overwrite_a=False,check_finite=False)
-        alpha = cho_solve((L, lower), y ,overwrite_b=False).reshape((1,-1))
+            L = np.linalg.cholesky(kernel)
+            z = solve_triangular(L,y,lower=True)
+            alpha = solve_triangular(L.T,z,lower=False,overwrite_b=True).reshape((1,-1))
+       
         return alpha
 
     def get_params(self,deep=True):
@@ -86,13 +94,14 @@ class KRRFastCV(RegressorBase):
     """
     _pairwise = True
     
-    def __init__(self,jitter,cv):
+    def __init__(self,jitter,cv,delta):
         self.jitter = jitter
         self.cv = cv
+        self.delta = delta
     
     def fit(self,kernel,y):
         '''Train the krr model with trainKernel and trainLabel.'''
-        Q = kernel + np.diag(self.jitter*np.ones(kernel.shape[0]))
+        Q = self.delta**2*kernel + np.diag(self.jitter*np.ones(kernel.shape[0]))
         Q_inv = np.linalg.inv(Q)
         alpha = np.dot(Q_inv,y)
         Cii = []
@@ -116,18 +125,22 @@ class KRRFastCV(RegressorBase):
     def set_params(self,params,deep=True):
         self.jitter  = params['jitter']
         self.cv = params['cv']
+        self.delta = params['delta']
         self.y_pred = None
 
     def pack(self):
         state = dict(y_pred=self.y_pred,cv=self.cv.pack(),
-                     jitter=self.jitter )
+                     jitter=self.jitter,delta=self.delta )
         return state
     def unpack(self,state):
         self.y_pred = state['y_pred']
         self.cv.unpack(state['cv'])
+        self.delta = state['delta']
+
         err_m = 'jitter are not consistent {} != {}'.format(self.jitter ,state['jitter'])
         assert self.jitter  == state['jitter'], err_m
     def loads(self,state):
         self.y_pred = state['y_pred']
         self.cv.loads(state['cv'])
         self.jitter  = state['jitter']
+        self.delta = state['delta']

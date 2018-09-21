@@ -9,17 +9,15 @@ except:
 
 
 class KernelPower(KernelBase):
-    def __init__(self,zeta,delta):
+    def __init__(self,zeta):
         self.zeta = zeta
-        self.delta = delta
     def fit(self,X):   
         return self
     def get_params(self,deep=True):
-        params = dict(zeta=self.zeta,delta=self.delta)
+        params = dict(zeta=self.zeta)
         return params
     def set_params(self,**params):
         self.zeta = params['zeta']
-        self.delta = params['delta']
     def transform(self,X,X_train=None):
         if X_train is None:
             return self(X)
@@ -29,19 +27,17 @@ class KernelPower(KernelBase):
     def __call__(self, X, Y=None, eval_gradient=False):
         if Y is None:
             Y = X
-        return np.multiply(power(np.dot(X,Y.T),self.zeta),self.delta**2)
+        return power(np.dot(X,Y.T),self.zeta)
           
     def pack(self):
-        state = dict(zeta=self.zeta,delta=self.delta)
+        state = dict(zeta=self.zeta)
         return state
     def unpack(self,state):
         err_m = 'zetas are not consistent {} != {}'.format(self.zeta,state['zeta'])
         assert self.zeta == state['zeta'], err_m
-        err_m = 'delta are not consistent {} != {}'.format(self.delta,state['delta'])
-        assert self.delta == state['delta'], err_m
+        
     def loads(self,state):
         self.zeta = state['zeta']
-        self.delta = state['delta']
 
 
 class KernelSum(KernelBase):
@@ -55,7 +51,6 @@ class KernelSum(KernelBase):
         return params
     def set_params(self,**params):
         self.kernel = params['kernel']
-        self.delta = self.kernel.delta
         self.strides = params['strides']
         
     def transform(self,X,X_train=None):
@@ -87,39 +82,34 @@ class KernelSum(KernelBase):
         self.set_params(state)
 
 class KernelSparseSoR(KernelBase):
-    def __init__(self,kernel,pseudo_input_ids=None):
-        self.delta = kernel.delta # \sim std of the training properties
+    def __init__(self,kernel,X_pseudo,Lambda):
+        self.Lambda = Lambda # \sim std of the training properties
         self.kernel = kernel
-        self.pseudo_input_ids = pseudo_input_ids
+        self.X_pseudo = X_pseudo
         
     def fit(self,X):   
         return self
     def get_params(self,deep=True):
-        params = dict(kernel=self.kernel,pseudo_input_ids=self.pseudo_input_ids)
+        params = dict(kernel=self.kernel,X_pseudo=self.X_pseudo)
         return params
     def set_params(self,**params):
         self.kernel = params['kernel']
-        self.delta = self.kernel.delta
-        self.pseudo_input_ids = params['pseudo_input_ids']
+        self.X_pseudo = params['X_pseudo']
         
-    def transform(self,X,y=None,X_train=None,X_pseudo=None):
+    def transform(self,X,y=None,X_train=None):
         if X_train is None and isinstance(X,dict) is False and y is not None:
-            if X_pseudo is None:
-                Xs = X[self.pseudo_input_ids]
-            else:
-                Xs = X_pseudo
-
+            Xs = self.X_pseudo
+            
             kMM = self.kernel(Xs,Y=Xs)
             kMN = self.kernel(Xs,Y=X)
-            ## assumes Lambda= delta**2*np.diag(np.ones(n))
-            sparseK = kMM + np.dot(kMN,kMN.T)/self.delta**2
-            sparseY = np.dot(kMN,y)/self.delta**2
+            ## assumes Lambda= Lambda**2*np.diag(np.ones(n))
+            sparseK = kMM + np.dot(kMN,kMN.T)/self.Lambda**2
+            sparseY = np.dot(kMN,y)
 
             return sparseK,sparseY
 
         else: 
-            return self.kernel(X,Y=X_train)
-
+            return self.kernel(X,Y=self.X_pseudo)
 
     def pack(self):
         state = self.get_params()
