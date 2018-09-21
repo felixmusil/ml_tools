@@ -5,8 +5,6 @@ try:
 except:
   import json
 
-
-
 def check_dir(workdir):
     if not os.path.exists(workdir):
         os.makedirs(workdir)

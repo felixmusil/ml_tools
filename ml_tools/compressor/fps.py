@@ -48,11 +48,16 @@ class FPSFilter(BaseEstimator,TransformerMixin):
         
         self.selected_ids = ifps
         self.min_distance2 = dfps
+        self.trained = True
         return self
     
     def transform(self,X):
-        if self.act_on == 'sample':
+        if self.act_on == 'sample' and self.trained is True:
+            # Only the training set needs to be sparsified 
+            # at prediction time it should do nothing to the 
+            # new samples
             return X[self.selected_ids,:]
+            self.trained = False
         elif self.act_on == 'feature':
             return X[:,self.selected_ids]
         elif self.act_on == 'feature A transform':

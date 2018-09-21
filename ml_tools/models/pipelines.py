@@ -74,7 +74,7 @@ class RegressorPipeline(RegressorBase):
         
         self.params = []
         self.steps = []
-        for name,cls_name,module_name,step_pack in data['']: 
+        for name,cls_name,module_name,step_pack in data['steps_pck']: 
             my_module = importlib.import_module(module_name)
             MyStep = getattr(my_module, cls_name)
             step = MyStep()
