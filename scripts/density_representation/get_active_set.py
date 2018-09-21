@@ -5,6 +5,9 @@ import sys
 sys.path.insert(0,'../../')
 
 import ml_tools as ml 
+from ml_tools.base import np,sp
+
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="""Does a sample fps selection""")
@@ -38,4 +41,3 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    

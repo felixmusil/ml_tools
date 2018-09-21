@@ -1,7 +1,9 @@
-import numpy as np
+from ..base import np,sp
 from scipy.linalg import cho_factor,cho_solve
 import os
 from ..utils import make_new_dir
+
+# NOT working properly
 
 def dummy(a):
     return a

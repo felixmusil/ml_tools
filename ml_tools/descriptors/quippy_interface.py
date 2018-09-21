@@ -1,7 +1,7 @@
 from ..base import AtomicDescriptorBase
 from quippy import descriptors
-import numpy as np
-from scipy import sparse as sp
+from ..base import np,sp
+
 import re
 from string import Template
 from ..utils import tqdm_cs
@@ -132,7 +132,7 @@ class RawSoapQUIP(AtomicDescriptorBase):
         Nframe = len(frames)
 
         if self.is_sparse:
-            soaps = sp.lil_matrix((Nenv,Nsoap),dtype=np.float64)
+            soaps = sp.sparse.lil_matrix((Nenv,Nsoap),dtype=np.float64)
         else:
             soaps = np.empty((Nenv,Nsoap))
 
@@ -144,7 +144,7 @@ class RawSoapQUIP(AtomicDescriptorBase):
             
             if self.is_sparse:
                 soap[np.abs(soap)<1e-13] = 0
-                soaps[slices[iframe]] = sp.lil_matrix(soap)
+                soaps[slices[iframe]] = sp.sparse.lil_matrix(soap)
             else:
                 soaps[slices[iframe]] = soap
         if self.is_sparse:

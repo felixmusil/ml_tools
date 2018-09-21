@@ -1,7 +1,5 @@
-import numpy as np
-from scipy.linalg import cholesky, cho_solve, solve_triangular,cho_factor
 from ..base import TrainerBase,RegressorBase
-
+from ..base import np,sp
 
 class KRR(RegressorBase):
     _pairwise = True
@@ -62,13 +60,13 @@ class TrainerCholesky(TrainerBase):
         
         if self.memory_eff:
             kernel[np.diag_indices_from(kernel)] += reg
-            kernel, lower = cho_factor(kernel, lower=False, overwrite_a=True, check_finite=False)
+            kernel, lower = sp.linalg.cho_factor(kernel, lower=False, overwrite_a=True, check_finite=False)
             L = kernel
-            alpha = cho_solve((L, lower), y ,overwrite_b=False).reshape((1,-1))
+            alpha = sp.linalg.cho_solve((L, lower), y ,overwrite_b=False).reshape((1,-1))
         else:
             L = np.linalg.cholesky(kernel)
-            z = solve_triangular(L,y,lower=True)
-            alpha = solve_triangular(L.T,z,lower=False,overwrite_b=True).reshape((1,-1))
+            z = sp.linalg.solve_triangular(L,y,lower=True)
+            alpha = sp.linalg.solve_triangular(L.T,z,lower=False,overwrite_b=True).reshape((1,-1))
        
         return alpha
 
@@ -101,7 +99,8 @@ class KRRFastCV(RegressorBase):
     
     def fit(self,kernel,y):
         '''Train the krr model with trainKernel and trainLabel.'''
-        Q = self.delta**2*kernel + np.diag(self.jitter*np.ones(kernel.shape[0]))
+        Q = self.delta**2*kernel
+        Q[np.diag_indices_from(Q)] += self.jitter
         Q_inv = np.linalg.inv(Q)
         alpha = np.dot(Q_inv,y)
         Cii = []

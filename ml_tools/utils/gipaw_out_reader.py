@@ -7,7 +7,7 @@ from ase.visualize import view
 from ase.io import read, write
 import math
 from string import Template
-import numpy as np
+from ..base import np,sp
 from copy import copy,deepcopy
 from glob import glob
 import cPickle as pck

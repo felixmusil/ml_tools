@@ -1,4 +1,4 @@
-import numpy as np
+from ..base import np,sp
 from ..base import BaseEstimator,TransformerMixin
 from ..utils import tqdm_cs
 import matplotlib.pyplot as plt

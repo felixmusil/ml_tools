@@ -7,7 +7,8 @@ from sklearn.utils import check_random_state
 from abc import ABCMeta, abstractmethod
 from sklearn.externals.six import with_metaclass
 import collections
-import numpy as np
+from ..base import np,sp
+
  
 
 class KFold(_KFold):

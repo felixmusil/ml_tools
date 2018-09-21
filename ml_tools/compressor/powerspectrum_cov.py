@@ -1,4 +1,4 @@
-import autograd.numpy as np
+from ..base import np,sp
 from ..base import BaseEstimator,TransformerMixin
 
 class CompressorCovarianceUmat(BaseEstimator,TransformerMixin):

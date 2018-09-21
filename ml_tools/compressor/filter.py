@@ -1,4 +1,4 @@
-import numpy as np
+from ..base import np,sp
 from ..base import BaseEstimator,TransformerMixin
 import spglib as spg
 

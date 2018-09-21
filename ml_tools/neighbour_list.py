@@ -1,6 +1,6 @@
 
 import json
-import numpy as np
+from .base import np,sp
 
 class BoxList(object):
     '''

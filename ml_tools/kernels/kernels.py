@@ -1,6 +1,7 @@
 
 from ..base import KernelBase
-import numpy as np
+from ..base import np,sp
+
 try:
     from ..math_utils.optimized import power
 except:
