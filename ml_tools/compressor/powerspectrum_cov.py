@@ -2,7 +2,7 @@ from ..base import np,sp
 from ..base import BaseEstimator,TransformerMixin
 
 class CompressorCovarianceUmat(BaseEstimator,TransformerMixin):
-    def __init__(self,soap_params,compression_type='species',dj=5,fj=None,symmetric=False,to_reshape=True):
+    def __init__(self,soap_params=None,compression_type='species',dj=5,fj=None,symmetric=False,to_reshape=True):
         self.dj = dj
         self.compression_type = compression_type
         self.soap_params = soap_params
@@ -64,6 +64,18 @@ class CompressorCovarianceUmat(BaseEstimator,TransformerMixin):
         #print X_c.shape
         self.u_mat = get_covariance_umat(X_c,self.dj,self.fj)
         return get_compressed_soap(X_c,self.u_mat,symmetric=self.symmetric)
+
+    def pack(self):
+        state = dict(u_mat=self.u_mat.tolist(),trainer=self.trainer.pack(),
+                     jitter=self.jitter,delta=self.delta )
+        return state
+
+    def unpack(self,state):
+        self.alpha = state['weights']
+        self.delta = state['delta']
+        self.trainer.unpack(state['trainer'])
+        err_m = 'jitter are not consistent {} != {}'.format(self.jitter ,state['jitter'])
+        assert self.jitter  == state['jitter'], err_m
 
 def get_covariance_umat(unlinsoap,dj,fj=None):
     '''
