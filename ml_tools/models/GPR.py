@@ -69,7 +69,7 @@ class GPR(object):
                 np.power(kernel,self.zeta,out=kernel)
             pred = self.invfunc(np.dot(self.alpha, kernel) ).reshape((-1))
             if self_kernel is not None:
-                kernel = cho_solve((self.L, self.lower), kernel,overwrite_b=True)
+                #kernel = cho_solve((self.L, self.lower), kernel,overwrite_b=True)
                 aa = np.zeros((kernel.shape[1],))
                 for ii in xrange(kernel.shape[1]):
                     aa[ii] = np.dot(kernel[:,ii],kernel[:,ii])
