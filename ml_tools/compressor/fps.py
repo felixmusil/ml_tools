@@ -62,6 +62,8 @@ class FPSFilter(BaseEstimator,TransformerMixin):
             return X[:,self.selected_ids]
         elif self.act_on == 'feature A transform':
             return np.dot(X[:,self.selected_ids],self.transformation_mat)
+        else:
+            return X
         
     def plot(self):
         plt.semilogy(self.min_distance2,label='FPSFilter '+self.act_on)
