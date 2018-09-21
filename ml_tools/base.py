@@ -1,5 +1,12 @@
 from sklearn.base import BaseEstimator, RegressorMixin,TransformerMixin
 
+try:
+    import autograd.numpy as np
+    import autograd.scipy as sp
+except:
+    import numpy as np
+    import scipy as sp
+
 class RegressorBase(BaseEstimator, RegressorMixin):
     def __init__(self):
         pass

@@ -1,5 +1,5 @@
 from sklearn.utils.metaestimators import _safe_split
-import numpy as np
+from ..base import np,sp
 
 class CrossValidationScorer(object):
     def __init__(self,cv=None,estimator=None,score_func=None,estimator_params=None):
