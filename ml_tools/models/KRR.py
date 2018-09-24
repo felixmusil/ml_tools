@@ -1,5 +1,9 @@
 from ..base import TrainerBase,RegressorBase
 from ..base import np,sp
+try:
+    from autograd.scipy.linalg import cho_factor,cho_solve,solve_triangular
+except:
+    from scipy.linalg import cho_factor,cho_solve,solve_triangular
 
 class KRR(RegressorBase):
     _pairwise = True
@@ -60,13 +64,13 @@ class TrainerCholesky(TrainerBase):
         
         if self.memory_eff:
             kernel[np.diag_indices_from(kernel)] += reg
-            kernel, lower = sp.linalg.cho_factor(kernel, lower=False, overwrite_a=True, check_finite=False)
+            kernel, lower = cho_factor(kernel, lower=False, overwrite_a=True, check_finite=False)
             L = kernel
-            alpha = sp.linalg.cho_solve((L, lower), y ,overwrite_b=False).reshape((1,-1))
+            alpha = cho_solve((L, lower), y ,overwrite_b=False).reshape((1,-1))
         else:
             L = np.linalg.cholesky(kernel+np.diag(reg))
-            z = sp.linalg.solve_triangular(L,y,lower=True)
-            alpha = sp.linalg.solve_triangular(L.T,z,lower=False,overwrite_b=True).reshape((1,-1))
+            z = solve_triangular(L,y,lower=True)
+            alpha = solve_triangular(L.T,z,lower=False,overwrite_b=True).reshape((1,-1))
        
         return alpha
 
