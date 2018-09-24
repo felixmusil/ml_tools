@@ -1,6 +1,6 @@
 import os
 import pickle as pck
-from .base import np
+from ..base import np
 
 try:
   import ujson as json

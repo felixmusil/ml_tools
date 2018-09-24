@@ -23,7 +23,6 @@ else:
     ascii = True
 
 def get_r2(y_pred,y_true):
-    
     weight = 1
     sample_weight = None
     numerator = (weight * (y_true - y_pred) ** 2).sum(axis=0,dtype=np.float64)
@@ -31,6 +30,7 @@ def get_r2(y_pred,y_true):
         y_true, axis=0, weights=sample_weight)) ** 2).sum(axis=0,dtype=np.float64)
     output_scores = 1 - (numerator / denominator)
     return np.mean(output_scores)
+
 def get_mae(ypred,y):
     return np.mean(np.abs(ypred-y))
 def get_rmse(ypred,y):
