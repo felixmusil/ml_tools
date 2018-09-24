@@ -1,5 +1,7 @@
 import os
 import pickle as pck
+from .base import np
+
 try:
   import ujson as json
 except:
@@ -27,6 +29,16 @@ def load_json(fn):
     with open(fn,'r') as f:
         data = json.load(f)
     return data
+
+def dump_data(fn,metadata,data):
+    data_fn = metadata['fn']
+    np.save(data_fn,data)
+    dump_json(fn,metadata)
+def load_data(fn,mmap_mode='r'):
+    metadata = load_json(fn)
+    data_fn = metadata['fn']
+    data = np.load(data_fn,mmap_mode=mmap_mode)
+    return metadata,data
 
 def check_file(fn):
     return os.path.isfile(fn)
