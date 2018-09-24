@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 class FPSFilter(BaseEstimator,TransformerMixin):
     def __init__(self,Nselect,kernel,act_on='sample',precompute_kernel=True,disable_pbar=True):
         self.Nselect = Nselect
-        if isinstance(kernel, np.ndarray):
+        if isinstance(kernel, np.ndarray) is True or isinstance(kernel,np.memmap) is True:
             # give a matrix kernel
             self.precompute_kernel = None
         else:
