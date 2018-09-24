@@ -34,6 +34,7 @@ def dump_data(fn,metadata,data):
     data_fn = metadata['fn']
     np.save(data_fn,data)
     dump_json(fn,metadata)
+    
 def load_data(fn,mmap_mode='r'):
     metadata = load_json(fn)
     data_fn = metadata['fn']

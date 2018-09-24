@@ -2,7 +2,7 @@ import argparse
 import time
 
 import sys
-sys.path.insert(0,'/home/musil/git/ml_tools')
+sys.path.insert(0,'/home/musil/git/ml_tools/')
 
 from ml_tools.base import np,sp
 from ase.io import read

@@ -32,6 +32,17 @@ class EnvironmentalKFold(_BaseKFold):
             raise ValueError('a mapping should be provided')
         super(EnvironmentalKFold, self).__init__(n_splits, shuffle, random_state)
         self.mapping = mapping
+        try:
+            self.mapping[0]
+            self.proper_dict = True
+        except:
+            self.proper_dict = False
+            
+    def id_map(self,ids):
+        if self.proper_dict is True:
+            return ids
+        elif self.proper_dict is False:
+            return str(ids)
 
     def get_params(self):
         params = dict(n_splits=self.n_splits,shuffle=self.shuffle,
@@ -52,7 +63,7 @@ class EnvironmentalKFold(_BaseKFold):
             start, stop = current, current + fold_size
             ids = []
             for it in indices[start:stop]:
-                ids.extend(self.mapping[it])
+                ids.extend(self.mapping[self.id_map(it)])
             yield ids
             current = stop
 
