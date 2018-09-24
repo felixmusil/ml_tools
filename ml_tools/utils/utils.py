@@ -1,7 +1,6 @@
 import os
-
 from ..base import np,sp
-
+from scipy.stats import spearmanr
 
 def is_notebook():
     from IPython import get_ipython
@@ -23,11 +22,15 @@ else:
     from tqdm import tqdm as tqdm_cs
     ascii = True
 
-def get_r2(ypred,y):
-    ybar = np.mean(y)          
-    ssreg = np.sum((ypred-ybar)**2)   
-    sstot = np.sum((y - ybar)**2)    
-    return ssreg / sstot
+def get_r2(y_pred,y_true):
+    
+    weight = 1
+    sample_weight = None
+    numerator = (weight * (y_true - y_pred) ** 2).sum(axis=0,dtype=np.float64)
+    denominator = (weight * (y_true - np.average(
+        y_true, axis=0, weights=sample_weight)) ** 2).sum(axis=0,dtype=np.float64)
+    output_scores = 1 - (numerator / denominator)
+    return np.mean(output_scores)
 def get_mae(ypred,y):
     return np.mean(np.abs(ypred-y))
 def get_rmse(ypred,y):
@@ -35,7 +38,7 @@ def get_rmse(ypred,y):
 def get_sup(ypred,y):
     return np.amax(np.abs((ypred-y)))
 def get_spearman(ypred,y):
-    corr,_ = sp.stats.mstats.spearmanr(ypred,y)
+    corr,_ = spearmanr(ypred,y)
     return corr
 
 def get_score(ypred,y):
