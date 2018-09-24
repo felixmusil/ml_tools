@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 from ..base import np,sp
 from ..base import BaseEstimator,TransformerMixin
 from ..utils import tqdm_cs
@@ -14,7 +16,6 @@ class FPSFilter(BaseEstimator,TransformerMixin):
             self.precompute_kernel = precompute_kernel
 
         self.kernel = kernel
-        
         self.disable_pbar = disable_pbar
         self.transformation_mat = None
         if act_on in ['sample','feature','feature A transform']:
@@ -49,7 +50,7 @@ class FPSFilter(BaseEstimator,TransformerMixin):
             ifps, dfps = do_fps_kernel(kernel,d=Nselect)
         elif self.precompute_kernel is False:
             ifps, dfps = do_fps_feature(x,d=Nselect,kernel=self.kernel)
-        elif self.precompute_kernel  is None:
+        elif self.precompute_kernel is None:
             ifps, dfps = do_fps_kernel(self.kernel,d=Nselect)
             
         
@@ -66,8 +67,8 @@ class FPSFilter(BaseEstimator,TransformerMixin):
             # Only the training set needs to be sparsified 
             # at prediction time it should do nothing to the 
             # new samples
-            return X[self.selected_ids,:]
             self.trained = False
+            return X[self.selected_ids,:]
         elif self.act_on == 'feature':
             return X[:,self.selected_ids]
         elif self.act_on == 'feature A transform':

@@ -39,7 +39,11 @@ def get_spearman(ypred,y):
     return corr
 
 def get_score(ypred,y):
-    return get_mae(ypred,y),get_rmse(ypred,y),get_sup(ypred,y),get_r2(ypred,y),get_spearman(ypred,y)
+    return dict(MAE=get_mae(ypred,y),
+                RMSE=get_rmse(ypred,y),
+                SUP=get_sup(ypred,y),
+                R2=get_r2(ypred,y),
+                CORR=get_spearman(ypred,y))
 
   
 def make_new_dir(fn):

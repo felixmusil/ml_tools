@@ -64,7 +64,7 @@ class TrainerCholesky(TrainerBase):
             L = kernel
             alpha = sp.linalg.cho_solve((L, lower), y ,overwrite_b=False).reshape((1,-1))
         else:
-            L = np.linalg.cholesky(kernel)
+            L = np.linalg.cholesky(kernel+np.diag(reg))
             z = sp.linalg.solve_triangular(L,y,lower=True)
             alpha = sp.linalg.solve_triangular(L.T,z,lower=False,overwrite_b=True).reshape((1,-1))
        
@@ -92,26 +92,28 @@ class KRRFastCV(RegressorBase):
     """
     _pairwise = True
     
-    def __init__(self,jitter,cv,delta):
+    def __init__(self,jitter,delta,cv):
         self.jitter = jitter
         self.cv = cv
         self.delta = delta
     
     def fit(self,kernel,y):
-        '''Train the krr model with trainKernel and trainLabel.'''
-        Q = self.delta**2*kernel
-        Q[np.diag_indices_from(Q)] += self.jitter
-        Q_inv = np.linalg.inv(Q)
-        alpha = np.dot(Q_inv,y)
+        '''Fast cv scheme. Destroy kernel.'''
+        np.multiply(self.delta**2,kernel,out=kernel)
+        kernel[np.diag_indices_from(kernel)] += self.jitter
+        kernel = np.linalg.inv(kernel)
+        alpha = np.dot(kernel,y)
         Cii = []
         beta = np.zeros(alpha.shape)
         self.y_pred = np.zeros(y.shape)
         self.error = np.zeros(y.shape)
         for _,test in self.cv.split(kernel):
-            Cii = Q_inv[np.ix_(test,test)]
+            Cii = kernel[np.ix_(test,test)]
             beta = np.linalg.solve(Cii,alpha[test]) 
             self.y_pred[test] = y[test] - beta
             self.error[test] = beta # beta = y_true - y_pred 
+
+        del kernel
         
     def predict(self,kernel=None):
         '''kernel.shape is expected as (nPred,nTrain)'''
