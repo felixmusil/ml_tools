@@ -2,13 +2,17 @@ import argparse
 import time
 
 import sys
-sys.path.insert(0,'../../')
+sys.path.insert(0,'/home/musil/git/ml_tools')
 
 import ml_tools as ml 
 from ml_tools.base import np,sp
 from ase.io import read
 from copy import copy
 import pandas as pd
+from ml_tools.utils import load_data,tqdm_cs,get_score
+from ml_tools.models import KRRFastCV
+from ml_tools.kernels import KernelPower
+from ml_tools.split import EnvironmentalKFold
 
 def get_sp_mapping(frames,sp):
     ii = 0
@@ -37,7 +41,7 @@ if __name__ == '__main__':
     deltas = sorted(list(set(deltas)))
 
     kernel_fn = args.kernel
-    params,_ = ml.io_utils.load_data(kernel_fn) 
+    params,_ = load_data(kernel_fn) 
     
     out_fn = args.out
 
@@ -48,21 +52,21 @@ if __name__ == '__main__':
     kernel_params = params['kernel_params']
     env_mapping = params['env_mapping']
 
-    kernel = ml.kernels.KernelPower(**kernel_params)
+    kernel = KernelPower(**kernel_params)
 
-    cv = ml.split.EnvironmentalKFold(n_splits=10,random_state=10,shuffle=True,mapping=env_mapping)
+    cv = EnvironmentalKFold(n_splits=10,random_state=10,shuffle=True,mapping=env_mapping)
     jitter = 1e-8
 
     scores = []
     preds = []
     
-    for delta in ml.utils.tqdm_cs(deltas):
-        krr = ml.modelsKRRFastCV(jitter,delta,cv)
-        _,Kmat = ml.utils.load_data(kernel_fn,mmap_mode=None)
+    for delta in tqdm_cs(deltas):
+        krr = KRRFastCV(jitter,delta,cv)
+        _,Kmat = load_data(kernel_fn,mmap_mode=None)
         krr.fit(Kmat,y_train)
         y_pred = krr.predict()
-        sc = ml.utils.get_score(y_pred,y_train)
-        sc.update(dict(delta=delta,y_pred=y_pred,y_true=y_true))
+        sc = get_score(y_pred,y_train)
+        sc.update(dict(delta=delta,y_pred=y_pred,y_true=y_train))
         scores.append(sc)
         preds.append(y_pred)
 
