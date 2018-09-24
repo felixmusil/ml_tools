@@ -6,8 +6,15 @@ import matplotlib.pyplot as plt
 class FPSFilter(BaseEstimator,TransformerMixin):
     def __init__(self,Nselect,kernel,act_on='sample',precompute_kernel=True,disable_pbar=True):
         self.Nselect = Nselect
+        if isinstance(kernel, np.ndarray):
+            # give a matrix kernel
+            self.precompute_kernel = None
+        else:
+            # give a function or class kernel
+            self.precompute_kernel = precompute_kernel
+
         self.kernel = kernel
-        self.precompute_kernel = precompute_kernel
+        
         self.disable_pbar = disable_pbar
         self.transformation_mat = None
         if act_on in ['sample','feature','feature A transform']:
@@ -37,11 +44,14 @@ class FPSFilter(BaseEstimator,TransformerMixin):
             x = x.T
         
         
-        if self.precompute_kernel:
+        if self.precompute_kernel is True:
             kernel = self.kernel(x)
             ifps, dfps = do_fps_kernel(kernel,d=Nselect)
-        else:
+        elif self.precompute_kernel is False:
             ifps, dfps = do_fps_feature(x,d=Nselect,kernel=self.kernel)
+        elif self.precompute_kernel  is None:
+            ifps, dfps = do_fps_kernel(self.kernel,d=Nselect)
+            
         
         if self.act_on == 'feature A transform':
             self.transformation_mat = get_A_matrix(x.T[:,ifps],x.T)
