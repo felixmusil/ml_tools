@@ -1,4 +1,4 @@
-from ..io_utils import check_dir,dump_pck,load_pck,dump_json,load_json,check_file
+from ..utils import check_dir,dump_pck,load_pck,dump_json,load_json,check_file
 import numpy as np
 from string import Template 
 from time import ctime
