@@ -39,19 +39,9 @@ fn_prop = path + 'data/CSD890_H.npy'
 fn_out = path + 'results/nmr/active_set/opt_cv_score_sparse.json'
 
 
-def get_sp_mapping(frames,sp):
-    ii = 0
-    fid2gids = {it:[] for it in range(len(frames))}
-    for iframe,cc in enumerate(frames):
-        for ss in cc.get_atomic_numbers():
-            if ss == sp:
-                fid2gids[iframe].append(ii)
-                ii += 1
-    return fid2gids
-
 
 y_train = np.load(fn_prop)
-
+print fn_in
 params, Kmat = load_data(fn_in,mmap_mode=None) 
 fps_ids = params['fps_ids']
 soap_params = params['soap_params']
