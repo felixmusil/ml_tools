@@ -24,7 +24,7 @@ class CompressorCovarianceUmat(BaseEstimator,TransformerMixin):
     def set_fj(self,fj):
         #self.u_mat = None
         self.fj = fj
-        #self.dj = len(fj)
+        self.dj = len(fj)
     def reshape_(self,X):
         unwrapped_X = get_unlin_soap(X,self.soap_params,self.soap_params['global_species'])
         

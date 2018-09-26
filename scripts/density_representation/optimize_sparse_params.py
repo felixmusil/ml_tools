@@ -73,8 +73,8 @@ for delta in tqdm_cs(deltas,desc='delta'):
             for train,test in tqdm_cs(cv.split(Kmat),desc='cv',total=cv.n_splits,leave=False):
                 kMN = Kmat[np.ix_(active_ids,train)]
                 ## assumes Lambda= Lambda**2*np.diag(np.ones(n))
-                sparseK = kMM + np.dot(kMN,kMN.T)/Lambda**2
-                sparseY = np.dot(kMN,y_train[train])
+                sparseK = kMM + np.dot(kMN,kMN.T)/Lambda
+                sparseY = np.dot(kMN,y_train[train])/Lambda
                 Ktest = Kmat[np.ix_(test,active_ids)]
                 krr.fit(sparseK,sparseY)
                 y_pred[test] = krr.predict(Ktest)
