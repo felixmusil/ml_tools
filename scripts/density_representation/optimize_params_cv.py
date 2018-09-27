@@ -1,7 +1,7 @@
 import argparse
 import time
 
-import sys
+import sys,os
 sys.path.insert(0,'/home/musil/git/ml_tools/')
 
 from ml_tools.base import np,sp
@@ -43,9 +43,8 @@ def optimize_loss(loss_func,x_start=None,args=None,maxiter=100,ftol=1e-6):
     pbar.close()
     return myop
 
-def sor_loss(x_opt,X,y,cv,jitter,disable_pbar=True,leave=False,disp_score=False):
-    delta = x_opt[0]
-    Lambda = x_opt[1]
+def sor_loss(x_opt,X,y,cv,jitter,disable_pbar=True,leave=False,return_score=False):
+    Lambda = x_opt[0]
     
     kMM = X[0]
     kMN = X[1]
@@ -54,43 +53,31 @@ def sor_loss(x_opt,X,y,cv,jitter,disable_pbar=True,leave=False,disp_score=False)
     mse = 0
     y_p = np.zeros((Nsample,))
     for train,test in tqdm_cs(cv.split(kMN.T),total=cv.n_splits,disable=disable_pbar,leave=False):
-    
-        #X_train = rawsoaps[train]
-        #kernel_train,y_train = kernel.transform(X_train,y[train])
-        #krr.fit(kernel_train,y_train)
-        #X_test = rawsoaps[test]
-        #kernel_test = kernel.transform(X_test)
-        #y_pred = krr.predict(kernel_test)
-        
         # prepare SoR kernel
         kMN_train =  kMN[:,train]
-        kernel_train = (kMM + np.dot(kMN_train,kMN_train.T)/Lambda**2) + np.diag(np.ones(Mactive))*jitter
+        kernel_train = kMM + np.dot(kMN_train,kMN_train.T)/Lambda**2 + np.diag(np.ones(Mactive))*jitter
         y_train = np.dot(kMN_train,y[train])/Lambda**2
         
         # train the KRR model
-        #kernel_train[diag_ids] = kernel_train[diag_ids] + jitter
-        kernel_train *= delta**2
         alpha = np.linalg.solve(kernel_train, y_train).flatten()
         
         # make predictions
-        kernel_test = kMN[:,test]*delta**2
+        kernel_test = kMN[:,test]
         y_pred = np.dot(alpha,kernel_test).flatten()
-        if disp_score is True:
+        if return_score is True:
             y_p[test] = y_pred
         
         mse += np.sum((y_pred-y[test])**2) 
     mse /= len(y)
     
-    if disp_score is True:
+    if return_score is True:
         score = get_score(y_p,y)
-        print score
         return score
     return mse
 
-def soap_cov_loss(x_opt,rawsoaps,y,cv,jitter,disable_pbar=True,leave=False,compressor=None,active_ids=None,disp_score=False):
-    delta = x_opt[0]
-    Lambda = x_opt[1]
-    fj = x_opt[2:]
+def soap_cov_loss(x_opt,rawsoaps,y,cv,jitter,disable_pbar=True,leave=False,compressor=None,active_ids=None,return_score=False):
+    Lambda = x_opt[0]
+    fj = x_opt[1:]
     
     compressor.set_fj(fj)
     
@@ -109,24 +96,22 @@ def soap_cov_loss(x_opt,rawsoaps,y,cv,jitter,disable_pbar=True,leave=False,compr
         kernel_train = (kMM + np.dot(kMN_train,kMN_train.T)/Lambda**2) + np.diag(np.ones(Mactive))*jitter
         y_train = np.dot(kMN_train,y[train])/Lambda**2
         
-        # train the KRR model
-        #kernel_train[np.diag_indices_from(kernel_train)] += jitter
-        kernel_train *= delta**2
+        # train the KRR model       
         alpha = np.linalg.solve(kernel_train, y_train).flatten()
         
         # make predictions
-        kernel_test = kMN[:,test]*delta**2
+        kernel_test = kMN[:,test]
         y_pred = np.dot(alpha,kernel_test).flatten()
-        if disp_score is True:
+        if return_score is True:
             y_p[test] = y_pred
         
         mse += np.sum((y_pred-y[test])**2) 
     mse /= len(y)
     
-    if disp_score is True:
+    if return_score is True:
         score = get_score(y_p,y)
-        print score
         return score
+    
     return mse
 
 if __name__ == '__main__':
@@ -194,12 +179,15 @@ if __name__ == '__main__':
 
     x_opt = optimize_loss(loss_func,x_start=x_init,args=args,maxiter=maxiter,ftol=ftol)
     
+    print('Optimized params:')
+    print('{}'.format(x_opt))
     print('score with the optimized parameters:')
-    new_args = [x_opt] + args + (True)
+    new_args = [x_opt.x] + args + (True)
     score = loss_func(*new_args)
+    print('Score: {}'.format(score))
 
-    data = dict(x_opt=,score=score,x_init=x_init,maxiter=maxiter,ftol=ftol,loss_type=args.loss,Nfps=Nfps,
-                Nfold=Nfold,rawsoaps_fn=rawsoaps_fn,prop_fn=prop_fn)
+    data = dict(x_opt=x_opt.x,score=score,x_init=x_init,maxiter=maxiter,ftol=ftol,loss_type=args.loss,Nfps=Nfps,
+                Nfold=Nfold,rawsoaps_fn=rawsoaps_fn,prop_fn=prop_fn,message=x_opt.message)
     
     print('dump results in {}'.format(out_fn))
     json_dump(out_fn,data)
