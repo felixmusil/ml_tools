@@ -104,8 +104,8 @@ class KernelSparseSoR(KernelBase):
             kMM = self.kernel(Xs,Y=Xs)
             kMN = self.kernel(Xs,Y=X)
             ## assumes Lambda= Lambda**2*np.diag(np.ones(n))
-            sparseK = kMM + np.dot(kMN,kMN.T)/self.Lambda
-            sparseY = np.dot(kMN,y)/self.Lambda
+            sparseK = kMM + np.dot(kMN,kMN.T)/self.Lambda**2
+            sparseY = np.dot(kMN,y)/self.Lambda**2
 
             return sparseK,sparseY
 

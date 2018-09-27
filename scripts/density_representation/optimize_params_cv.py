@@ -4,10 +4,11 @@ import time
 import sys,os
 sys.path.insert(0,'/home/musil/git/ml_tools/')
 
+from autograd import grad
+
 from ml_tools.base import np,sp
 
-from autograd import grad
-from ml_tools.utils import load_data,tqdm_cs,get_score,load_json,json_dump
+from ml_tools.utils import load_data,tqdm_cs,get_score,dump_json,load_json
 from ml_tools.models import KRRFastCV
 from ml_tools.kernels import KernelPower
 from ml_tools.split import EnvironmentalKFold
@@ -117,7 +118,7 @@ def soap_cov_loss(x_opt,rawsoaps,y,cv,jitter,disable_pbar=True,leave=False,compr
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="""Get CV score using full covariance mat""")
 
-    parser.add_argument("--rawsoaps", type=str, help="Name of the metadata file refering to full feature matrix")
+    parser.add_argument("--X", type=str, help="Name of the metadata file refering to the input data")
     parser.add_argument("--Nfps", type=int, help="Number of pseudo input to take from the fps ids")
     parser.add_argument("--Xinit", type=str, help="Comma-separated list of initial parameters to optimize over")
     parser.add_argument("--Nfold", type=int, help="Number of folds for the CV")
@@ -130,50 +131,52 @@ if __name__ == '__main__':
     parser.add_argument("--prop", type=str, help="Path to the corresponding properties")
     parser.add_argument("--out", type=str, help="Path to the corresponding output")
     
-    args = parser.parse_args()
+    in_args = parser.parse_args()
 
-    prop_fn = os.path.abspath(args.prop)
+    prop_fn = os.path.abspath(in_args.prop)
     y = np.load(prop_fn)
 
     
-    x_init = map(float, args.Xinit.split(','))
+    x_init = map(float, in_args.Xinit.split(','))
     
-    Nfps = args.Nfps
-    Nfold = args.Nfold
-    jitter = args.jitter
-    maxiter = args.maxiter
-    ftol = args.ftol
+    Nfps = in_args.Nfps
+    Nfold = in_args.Nfold
+    jitter = in_args.jitter
+    maxiter = in_args.maxiter
+    ftol = in_args.ftol
 
-    rawsoaps_fn = os.path.abspath(args.rawsoaps)
-    params,rawsoaps = load_data(rawsoaps_fn) 
+    rawsoaps_fn = os.path.abspath(in_args.X)
+    params,X = load_data(rawsoaps_fn) 
     fps_ids = params['fps_ids']
     soap_params = params['soap_params']
     kernel_params = params['kernel_params']
     env_mapping = params['env_mapping']
-    out_fn = args.out
-
-    if len(args.compressor) > 0:
+    out_fn = in_args.out
+    loss_type = in_args.loss 
+    
+    if len(in_args.compressor) > 0:
         compressor = CompressorCovarianceUmat()
-        state = load_json(args.compressor)
+        state = load_json(in_args.compressor)
         compressor.unpack(state)
     #############################################
     
     cv = EnvironmentalKFold(n_splits=Nfold,random_state=10,shuffle=True,mapping=env_mapping)
-
-    if args.loss == 'sor_loss':
+    kernel = KernelPower(**kernel_params)
+    print('Start: {}'.format(time.ctime()))
+    if loss_type == 'sor_loss':
         loss_func = sor_loss
-        X_active = rawsoaps[fps_ids[:Nfps]]
-        kMM = np.dot(X_active,X_active.T)
-        kMN = np.dot(X_active,rawsoaps.T)
-        args = [(kMM,kMN),y,cv,jitter,False,False]
-        if len(x_init) != 2:
-            raise ValueError('with {} loss function, Xinit should have 2 argument'.format(args.loss))
-    elif args.loss == 'soap_cov_loss':
+        X_active = X[fps_ids[:Nfps]]
+        kMM = kernel(X_active,X_active)
+        kMN = kernel(X_active,X)
+        args = ((kMM,kMN),y,cv,jitter,False,False)
+        if len(x_init) != 1:
+            raise ValueError('with {} loss function, Xinit should have 1 argument'.format(loss_type))
+    elif loss_type == 'soap_cov_loss':
         loss_func = soap_cov_loss
         active_ids = fps_ids[:Nfps]
-        args = [rawsoaps,y,cv,jitter,False,False,compressor,active_ids]
+        args = (X,y,cv,jitter,False,False,compressor,active_ids)
     else:
-        raise ValueError('loss function: {}, does not exist.'.format(args.loss))
+        raise ValueError('loss function: {}, does not exist.'.format(loss_type))
 
     print('Start optimization with {}'.format(x_init))
 
@@ -182,12 +185,13 @@ if __name__ == '__main__':
     print('Optimized params:')
     print('{}'.format(x_opt))
     print('score with the optimized parameters:')
-    new_args = [x_opt.x] + args + (True)
+    new_args = [x_opt.x] + list(args) + [True]
     score = loss_func(*new_args)
     print('Score: {}'.format(score))
 
-    data = dict(x_opt=x_opt.x,score=score,x_init=x_init,maxiter=maxiter,ftol=ftol,loss_type=args.loss,Nfps=Nfps,
+    data = dict(x_opt=x_opt.x.tolist(),score=score,x_init=x_init,
+                maxiter=maxiter,ftol=ftol,loss_type=loss_type,Nfps=Nfps,
                 Nfold=Nfold,rawsoaps_fn=rawsoaps_fn,prop_fn=prop_fn,message=x_opt.message)
     
     print('dump results in {}'.format(out_fn))
-    json_dump(out_fn,data)
+    dump_json(out_fn,data)

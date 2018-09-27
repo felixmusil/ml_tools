@@ -62,11 +62,13 @@ class TrainerCholesky(TrainerBase):
         """ len(y) == len(reg)"""
         reg = jitter
         
-        if self.memory_eff:
+        if self.memory_eff is True:
             kernel[np.diag_indices_from(kernel)] += reg
             kernel, lower = cho_factor(kernel, lower=False, overwrite_a=True, check_finite=False)
             L = kernel
             alpha = cho_solve((L, lower), y ,overwrite_b=False).reshape((1,-1))
+        if self.memory_eff == 'autograd':
+            alpha = np.linalg.solve(kernel+np.diag(reg), y).reshape((1,-1))
         else:
             L = np.linalg.cholesky(kernel+np.diag(reg))
             z = solve_triangular(L,y,lower=True)
