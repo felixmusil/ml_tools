@@ -31,13 +31,13 @@ def load_json(fn):
     return data
 
 def dump_data(fn,metadata,data):
-    data_fn = metadata['fn']
+    data_fn = os.path.join(os.path.dirname(fn),metadata['fn'])
     np.save(data_fn,data)
     dump_json(fn,metadata)
     
 def load_data(fn,mmap_mode='r'):
     metadata = load_json(fn)
-    data_fn = metadata['fn']
+    data_fn = os.path.join(os.path.dirname(fn),metadata['fn'])
     data = np.load(data_fn,mmap_mode=mmap_mode)
     return metadata,data
 
