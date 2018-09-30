@@ -8,25 +8,25 @@ from autograd import grad
 
 from ml_tools.base import np,sp
 
-from ml_tools.utils import load_data,tqdm_cs,get_score,dump_json,load_json
+from ml_tools.utils import load_data,tqdm_cs,get_score,dump_json,load_json,dump_pck,load_pck
 from ml_tools.models import KRR,TrainerCholesky
 from ml_tools.kernels import KernelPower,KernelSparseSoR
 from ml_tools.split import EnvironmentalShuffleSplit,LCSplit,ShuffleSplit
 from ml_tools.compressor import CompressorCovarianceUmat
-
+import pandas as pd
 from ase.io import read
 
 EXPECTED_INPUT = dict(
   soap_params=dict(),
   base_kernel=dict(params=dict(zeta=2)),
   env_mapping_fn='',
-  model=dict(params=dict(jitter=1e-8,delta=0.1))
+  model=dict(params=dict(jitter=1e-8,delta=0.1)),
   sparse_kernel=dict(active_inp=dict(ids_fn='',Nfps=10),params=dict(Lambda=10)),
   input_data=dict(frames_fn='',feature_mat_fn='',Kmat_fn=''),
   lc_params=dict(n_repeats=[1],train_sizes=[1],test_size=10,random_state=10),
   prop_fn='',
   start_from_iter=0,
-
+  out_fn=dict(scores='',results='')
 )
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="""Get CV score using full covariance mat""")
@@ -37,6 +37,8 @@ if __name__ == '__main__':
 
     inp = load_json(args.input)
 
+    scores_fn = inp['out_fn']['scores']
+    results_fn = inp['out_fn']['results']
     # inp['']
     prop_fn = os.path.abspath(inp['prop_fn'])
     y = np.load(prop_fn)
@@ -131,6 +133,14 @@ if __name__ == '__main__':
             sc = get_score(y_pred,y[test])
             dd = dict(Ntrain = len(train), Ntest = len(test),iter=ii)
             sc.update(**dd)
-            results['results'].append(dict(y_pred=y_pred,y_true=y[test],
+            scores.append(sc)
+            
+            results['results'].append(dict(y_pred=y_pred,y_true=y[test],iter=ii,
                                             Ntrain = len(train), Ntest = len(test)))
+
+            df = pd.DataFrame(scores)
+            df.to_json(scores_fn)
+            dump_pck(results_fn,results)
         ii += 1
+
+    
