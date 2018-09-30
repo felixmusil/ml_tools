@@ -7,7 +7,7 @@ sys.path.insert(0,'/home/musil/git/ml_tools/')
 from autograd import grad
 
 from ml_tools.base import np,sp
-
+ 
 from ml_tools.utils import load_data,tqdm_cs,get_score,dump_json,load_json,dump_pck,load_pck
 from ml_tools.models import KRR,TrainerCholesky
 from ml_tools.kernels import KernelPower,KernelSparseSoR
@@ -67,19 +67,18 @@ if __name__ == '__main__':
         delta = inp['model']['params']['delta']
         is_SoR = False
 
-
     if 'frames_fn' in input_data:
       frames_fn = os.path.abspath(input_data['frames_fn'])
       representation = RawSoapQUIP(**inp['soap_params'])
       compute_rep = True
       compute_kernel = True
     elif 'feature_mat_fn' in input_data:
-      rawsoaps_fn = os.path.abspath(input_data['feature_mat_fn'])
+      rawsoaps_fn = os.path.abspath(inp['feature_mat_fn'])
       kernel = KernelPower(**inp['kernel_params'])
       compute_rep = False
       compute_kernel = True
     elif 'Kmat_fn' in input_data:
-      Kmat_fn = os.path.abspath(input_data['Kmat_fn'])
+      Kmat_fn = os.path.abspath(inp['Kmat_fn'])
       compute_rep = False
       compute_kernel = False
         
@@ -89,10 +88,10 @@ if __name__ == '__main__':
     if compute_rep is True:
         frames = read(frames_fn,index=':')
         rawsoaps = representation.transform(frames)
+        Nsample = len(rawsoaps)
     elif compute_rep is False and compute_kernel is True:
         params,rawsoaps = load_data(rawsoaps_fn,mmap_mode=None)
-
-    Nsample = len(rawsoaps)
+        Nsample = len(rawsoaps)
 
     print('Get kernel')
     if compute_kernel is True:
@@ -102,12 +101,14 @@ if __name__ == '__main__':
             kMN = kernel(X_active,rawsoaps)
         else:
             Kmat = kernel.transform(rawsoaps)
-    
+        Nsample = kMN.shape[1]
     elif compute_rep is False and compute_kernel is False:
         if is_SoR is True:
             params,(kMM,kMN) = load_data(Kmat_fn,mmap_mode=None)
+            Nsample = kMN.shape[1]
         else:
             params,Kmat = load_data(Kmat_fn,mmap_mode=None)
+            Nsample = Kmat.shape[0]
   
    
     trainer = TrainerCholesky(memory_efficient=True)
