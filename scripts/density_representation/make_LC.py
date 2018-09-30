@@ -13,6 +13,7 @@ from ml_tools.models import KRR,TrainerCholesky
 from ml_tools.kernels import KernelPower,KernelSparseSoR
 from ml_tools.split import EnvironmentalShuffleSplit,LCSplit,ShuffleSplit
 from ml_tools.compressor import CompressorCovarianceUmat
+from ml_tools.representation import RawSoapQUIP
 import pandas as pd
 from ase.io import read
 
@@ -28,8 +29,9 @@ EXPECTED_INPUT = dict(
   start_from_iter=0,
   out_fn=dict(scores='',results='')
 )
+
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description="""Get CV score using full covariance mat""")
+    parser = argparse.ArgumentParser(description="""Get LC""")
 
     parser.add_argument("--input", type=str, help="Name of the metadata file containing the input data")
     

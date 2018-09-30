@@ -50,5 +50,6 @@ def load_data(fn,mmap_mode='r',is_sparse=False):
     return metadata,data
 
 
+
 def check_file(fn):
     return os.path.isfile(fn)
