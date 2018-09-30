@@ -1,6 +1,7 @@
 import os
 import pickle as pck
 from ..base import np,sp
+from scipy.sparse import save_npz,load_npz
 
 try:
   import ujson as json
@@ -31,11 +32,12 @@ def load_json(fn):
     return data
 
 def dump_data(fn,metadata,data,is_sparse=False,compressed=False):
+    
     data_fn = os.path.join(os.path.dirname(fn),metadata['fn'])
     if is_sparse is False:
         np.save(data_fn,data)
     else:
-        sp.sparse.save_npz(data_fn,data,compressed=compressed)
+        save_npz(data_fn,data,compressed=compressed)
     dump_json(fn,metadata)
     
 def load_data(fn,mmap_mode='r',is_sparse=False):
@@ -44,7 +46,7 @@ def load_data(fn,mmap_mode='r',is_sparse=False):
     if is_sparse is False:
         data = np.load(data_fn,mmap_mode=mmap_mode)
     else:
-        data = sp.sparse.load_npz(data_fn)
+        data = load_npz(data_fn)
     return metadata,data
 
 
