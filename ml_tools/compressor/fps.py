@@ -47,11 +47,11 @@ class FPSFilter(BaseEstimator,TransformerMixin):
         
         if self.precompute_kernel is True:
             kernel = self.kernel(x)
-            ifps, dfps = do_fps_kernel(kernel,d=Nselect)
+            ifps, dfps = do_fps_kernel(kernel,d=Nselect,disable_pbar=self.disable_pbar)
         elif self.precompute_kernel is False:
-            ifps, dfps = do_fps_feature(x,d=Nselect,kernel=self.kernel)
+            ifps, dfps = do_fps_feature(x,d=Nselect,kernel=self.kernel,disable_pbar=self.disable_pbar)
         elif self.precompute_kernel is None:
-            ifps, dfps = do_fps_kernel(self.kernel,d=Nselect)
+            ifps, dfps = do_fps_kernel(self.kernel,d=Nselect,disable_pbar=self.disable_pbar)
             
         
         if self.act_on == 'feature A transform':
