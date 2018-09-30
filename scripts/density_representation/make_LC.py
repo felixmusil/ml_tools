@@ -13,7 +13,7 @@ from ml_tools.models import KRR,TrainerCholesky
 from ml_tools.kernels import KernelPower,KernelSparseSoR
 from ml_tools.split import EnvironmentalShuffleSplit,LCSplit,ShuffleSplit
 from ml_tools.compressor import CompressorCovarianceUmat
-from ml_tools.representation import RawSoapQUIP
+from ml_tools.descriptors import RawSoapQUIP
 import pandas as pd
 from ase.io import read
 
