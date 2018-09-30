@@ -1,6 +1,6 @@
 import os
 import pickle as pck
-from ..base import np
+from ..base import np,sp
 
 try:
   import ujson as json
@@ -30,16 +30,23 @@ def load_json(fn):
         data = json.load(f)
     return data
 
-def dump_data(fn,metadata,data):
+def dump_data(fn,metadata,data,is_sparse=False,compressed=False):
     data_fn = os.path.join(os.path.dirname(fn),metadata['fn'])
-    np.save(data_fn,data)
+    if is_sparse is False:
+        np.save(data_fn,data)
+    else:
+        sp.sparse.save_npz(data_fn,data,compressed=compressed)
     dump_json(fn,metadata)
     
-def load_data(fn,mmap_mode='r'):
+def load_data(fn,mmap_mode='r',is_sparse=False):
     metadata = load_json(fn)
     data_fn = os.path.join(os.path.dirname(fn),metadata['fn'])
-    data = np.load(data_fn,mmap_mode=mmap_mode)
+    if is_sparse is False:
+        data = np.load(data_fn,mmap_mode=mmap_mode)
+    else:
+        data = sp.sparse.load_npz(data_fn)
     return metadata,data
+
 
 def check_file(fn):
     return os.path.isfile(fn)
