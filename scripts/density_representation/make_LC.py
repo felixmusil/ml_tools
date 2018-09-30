@@ -67,18 +67,19 @@ if __name__ == '__main__':
         delta = inp['model']['params']['delta']
         is_SoR = False
 
+
     if 'frames_fn' in input_data:
       frames_fn = os.path.abspath(input_data['frames_fn'])
       representation = RawSoapQUIP(**inp['soap_params'])
       compute_rep = True
       compute_kernel = True
     elif 'feature_mat_fn' in input_data:
-      rawsoaps_fn = os.path.abspath(inp['feature_mat_fn'])
+      rawsoaps_fn = os.path.abspath(input_data['feature_mat_fn'])
       kernel = KernelPower(**inp['kernel_params'])
       compute_rep = False
       compute_kernel = True
     elif 'Kmat_fn' in input_data:
-      Kmat_fn = os.path.abspath(inp['Kmat_fn'])
+      Kmat_fn = os.path.abspath(input_data['Kmat_fn'])
       compute_rep = False
       compute_kernel = False
         

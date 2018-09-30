@@ -1,1 +1,1 @@
-from quippy_interface import RawSoapQUIP
+from .quippy_interface import RawSoapQUIP
