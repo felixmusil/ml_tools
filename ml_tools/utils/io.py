@@ -24,7 +24,7 @@ def load_pck(fn):
 
 def dump_json(fn,data):
     with open(fn,'w') as f:
-        json.dump(data,f)
+        json.dump(data,f,sort_keys=True,indent=2,separators=(',', ': '))
 
 def load_json(fn):
     with open(fn,'r') as f:

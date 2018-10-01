@@ -35,7 +35,7 @@ def optimize_loss(loss_func,x_start=None,args=None,maxiter=100,ftol=1e-6):
         for x in Xi:
             sss += '  '+'{:.5e}'.format(x)
         print('{0:4d}'.format(Nfeval) + sss)
-        
+        sys.stdout.flush()
         pbar.update()
     #const = spop.Bounds(np.zeros(x_start.shape),np.inf*np.ones(x_start.shape))
     myop = minimize(loss_func, x_start, args = args, jac=gloss_func,callback=call,
@@ -179,7 +179,7 @@ if __name__ == '__main__':
         raise ValueError('loss function: {}, does not exist.'.format(loss_type))
 
     print('Start optimization with {}'.format(x_init))
-
+    sys.stdout.flush()
     x_opt = optimize_loss(loss_func,x_start=x_init,args=args,maxiter=maxiter,ftol=ftol)
     
     print('Optimized params:')
