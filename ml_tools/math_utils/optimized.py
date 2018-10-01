@@ -5,4 +5,3 @@ import math
 def power(x,zeta):
     return math.pow(x,zeta)
 
-    

@@ -14,6 +14,14 @@ from ml_tools.kernels import KernelPower
 from ml_tools.split import EnvironmentalKFold
 from ml_tools.compressor import CompressorCovarianceUmat
 
+from ml_tools.math_utils.optimized import power 
+from autograd.extend import primitive, defvjp
+def power_vjp(ans, x,zeta):
+    x_shape = x.shape
+    return lambda g: np.full(x_shape, g) * zeta * power(x,zeta-1) 
+    
+defvjp(power, power_vjp)
+
 def get_sp_mapping(frames,sp):
     ii = 0
     fid2gids = {it:[] for it in range(len(frames))}
