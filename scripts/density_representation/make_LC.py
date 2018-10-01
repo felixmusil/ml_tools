@@ -17,6 +17,7 @@ from ml_tools.descriptors import RawSoapQUIP
 import pandas as pd
 from ase.io import read
 
+
 EXPECTED_INPUT = dict(
   soap_params=dict(),
   base_kernel=dict(params=dict(zeta=2)),
@@ -39,8 +40,8 @@ if __name__ == '__main__':
 
     inp = load_json(args.input)
 
-    scores_fn = inp['out_fn']['scores']
-    results_fn = inp['out_fn']['results']
+    scores_fn = os.path.abspath(inp['out_fn']['scores'])
+    results_fn = os.path.abspath(inp['out_fn']['results'])
     # inp['']
     prop_fn = os.path.abspath(inp['prop_fn'])
     y = np.load(prop_fn)
@@ -73,12 +74,12 @@ if __name__ == '__main__':
       compute_rep = True
       compute_kernel = True
     elif 'feature_mat_fn' in input_data:
-      rawsoaps_fn = os.path.abspath(inp['feature_mat_fn'])
+      rawsoaps_fn = os.path.abspath(input_data['feature_mat_fn'])
       kernel = KernelPower(**inp['kernel_params'])
       compute_rep = False
       compute_kernel = True
     elif 'Kmat_fn' in input_data:
-      Kmat_fn = os.path.abspath(inp['Kmat_fn'])
+      Kmat_fn = os.path.abspath(input_data['Kmat_fn'])
       compute_rep = False
       compute_kernel = False
         
@@ -104,8 +105,10 @@ if __name__ == '__main__':
         Nsample = kMN.shape[1]
     elif compute_rep is False and compute_kernel is False:
         if is_SoR is True:
-            params,(kMM,kMN) = load_data(Kmat_fn,mmap_mode=None)
-            Nsample = kMN.shape[1]
+            params,Kmat = load_data(Kmat_fn,mmap_mode=None)
+            Nsample = Kmat.shape[1]
+            kMM = Kmat[np.ix_(active_ids,active_ids)]
+            kMN = Kmat[active_ids]
         else:
             params,Kmat = load_data(Kmat_fn,mmap_mode=None)
             Nsample = Kmat.shape[0]
@@ -113,14 +116,13 @@ if __name__ == '__main__':
    
     trainer = TrainerCholesky(memory_efficient=True)
     model = KRR(jitter,delta,trainer)
-    lc = LCSplit(ShuffleSplit, n_repeats=[10],train_sizes=[10],
-            test_size="default", random_state=None,mapping=env_mapping)
+    lc = LCSplit(ShuffleSplit, **lc_params)
 
     scores = []
     results = dict(input_params=inp,results=[])
     ii = 0
-    for train,test in tqdm_cs(lc.split(rawsoaps),total=lc.n_splits,desc='LC'):
-        if ii < start_from_iter:
+    for train,test in tqdm_cs(lc.split(y.reshape((-1,1))),total=lc.n_splits,desc='LC'):
+        if ii >= start_from_iter:
             if is_SoR is True:
                 kMN_train =  kMN[:,train]
                 k_train = kMM + np.dot(kMN_train,kMN_train.T)/Lambda**2
@@ -131,8 +133,10 @@ if __name__ == '__main__':
                 y_train = y[train]
                 k_test = Kmat[np.ix_(test,train)]
 
-            model.fit(k_train,y_train)
-            y_pred = model.predict(k_test)
+            alpha = np.linalg.solve(k_train, y_train).flatten()
+            y_pred = np.dot(alpha,k_test).flatten()
+            #model.fit(k_train,y_train)
+            #y_pred = model.predict(k_test)
 
             sc = get_score(y_pred,y[test])
             dd = dict(Ntrain = len(train), Ntest = len(test),iter=ii)
@@ -141,7 +145,7 @@ if __name__ == '__main__':
             
             results['results'].append(dict(y_pred=y_pred,y_true=y[test],iter=ii,
                                             Ntrain = len(train), Ntest = len(test)))
-
+            
             df = pd.DataFrame(scores)
             df.to_json(scores_fn)
             dump_pck(results_fn,results)
