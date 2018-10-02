@@ -28,6 +28,7 @@ EXPECTED_INPUT = dict(
   lc_params=dict(n_repeats=[1],train_sizes=[1],test_size=10,random_state=10),
   prop_fn='',
   start_from_iter=0,
+  compressor=dict(fn=''),
   out_fn=dict(scores='',results='')
 )
 
@@ -68,6 +69,19 @@ if __name__ == '__main__':
         delta = inp['model']['params']['delta']
         is_SoR = False
 
+    if 'compressor' in inp:
+        compressor_fn = inp['compressor']['fn']
+        has_compressor = True
+        print('Load compressor from: {}'.format(compressor_fn))
+        compressor = CompressorCovarianceUmat()
+        state = load_pck(compressor_fn)
+        compressor.unpack(state)
+        if 'fj' in inp['compressor']:
+            compressor.set_fj(inp['compressor']['fj'])
+        compressor.to_reshape = True 
+    else:
+        has_compressor = False
+
     if 'frames_fn' in input_data:
       frames_fn = os.path.abspath(input_data['frames_fn'])
       representation = RawSoapQUIP(**inp['soap_params'])
@@ -88,20 +102,28 @@ if __name__ == '__main__':
     print('Get representation')
     if compute_rep is True:
         frames = read(frames_fn,index=':')
-        rawsoaps = representation.transform(frames)
-        Nsample = len(rawsoaps)
-    elif compute_rep is False and compute_kernel is True:
-        params,rawsoaps = load_data(rawsoaps_fn,mmap_mode=None)
-        Nsample = len(rawsoaps)
-
+        X = representation.transform(frames)
+        Nsample = len(X)
+        if is_SoR is True:
+            X_active = X[active_ids]
+    elif compute_rep is False and compute_kernel is True and has_compressor is False:
+        params,X = load_data(rawsoaps_fn,mmap_mode=None)
+        Nsample = len(X)
+        if is_SoR is True:
+            X_active = X[active_ids]
+    elif compute_rep is False and compute_kernel is True and has_compressor is True:
+        params,data = load_data(rawsoaps_fn,mmap_mode=None)
+        X = compressor.transform(data[0])
+        X_active = compressor.transform(data[1])
+        Nsample = len(X)
+        
     print('Get kernel')
     if compute_kernel is True:
         if is_SoR is True:
-            X_active = rawsoaps[active_ids]
             kMM = kernel(X_active,X_active)
-            kMN = kernel(X_active,rawsoaps)
+            kMN = kernel(X_active,X)    
         else:
-            Kmat = kernel.transform(rawsoaps)
+            Kmat = kernel.transform(X)
         Nsample = kMN.shape[1]
     elif compute_rep is False and compute_kernel is False:
         if is_SoR is True:

@@ -21,6 +21,7 @@ class CompressorCovarianceUmat(BaseEstimator,TransformerMixin):
         self.soap_params = params['soap_params']
         self.fj = params['fj']
         self.symmetric = params['symmetric']
+        self.to_reshape = params['to_reshape']
     def set_fj(self,fj):
         #self.u_mat = None
         self.fj = fj
