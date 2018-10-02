@@ -12,7 +12,7 @@ class CompressorCovarianceUmat(BaseEstimator,TransformerMixin):
     def get_params(self,deep=True):
         params = dict(dj=self.dj,compression_type=self.compression_type,
                       soap_params=self.soap_params,fj=self.fj,
-                      symmetric=self.symmetric)
+                      symmetric=self.symmetric,to_reshape=self.to_reshape)
         return params
     
     def set_params(self,params):
