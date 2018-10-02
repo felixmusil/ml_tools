@@ -194,7 +194,7 @@ if __name__ == '__main__':
 
     rawsoaps_fn = os.path.abspath(in_args.X)
     print('Load data from: {}'.format(rawsoaps_fn))
-    params,X = load_data(rawsoaps_fn) 
+    params,X = load_data(rawsoaps_fn,mmap_mode=None) 
     if 'fps_ids' in params:
         fps_ids = params['fps_ids']
     soap_params = params['soap_params']
@@ -209,7 +209,7 @@ if __name__ == '__main__':
         compressor = CompressorCovarianceUmat()
         state = load_pck(compressor_fn)
         compressor.unpack(state)
-        compressor.to_reshape = False
+        #compressor.to_reshape = False
     else:
         compressor_fn = None
     #############################################
@@ -229,7 +229,7 @@ if __name__ == '__main__':
         loss_func = soap_cov_loss
         active_ids = fps_ids[:Nfps]
         args = (X,y,cv,jitter,False,False,compressor,active_ids)
-    elif sor_fj_loss == 'sor_fj_loss':
+    elif loss_type == 'sor_fj_loss':
         loss_func = sor_fj_loss
         rawsoaps = X[0]
         rawsoaps_active = X[1]
