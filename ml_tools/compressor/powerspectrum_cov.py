@@ -56,11 +56,10 @@ class CompressorCovarianceUmat(BaseEstimator,TransformerMixin):
             X_c = X
         
         if self.fj is not None:
-            u_mat = np.dot(self.fj,self.u_mat_full[:self.dj,:])
-            #u_mat = np.einsum("ja,j->ja",self.u_mat_full[:self.dj,:],self.fj,optimize='optimal')
+            #u_mat = np.dot(self.fj,self.u_mat_full[:self.dj,:])
+            u_mat = np.einsum("ja,j->ja",self.u_mat_full[:self.dj,:],self.fj,optimize='optimal')
         else:
             u_mat = self.u_mat_full[:self.dj,:]
-        
         return get_compressed_soap(X_c,u_mat,symmetric=self.symmetric)
     
     def fit_transform(self,X):
@@ -121,8 +120,7 @@ def get_compressed_soap(unlinsoap,u_mat,symmetric=False,lin_out=True):
     #p = np.zeros((Nsoap,Ncomp,Ncomp,nn))
     p = np.einsum('ij,ek,ajkm->aiem',u_mat,u_mat,unlinsoap,optimize='optimal')
     pn = np.linalg.norm(p.reshape((Nsoap,-1)),axis=1).reshape((Nsoap,1,1,1))
-    p = p / pn
-    
+    p /=  pn
     if symmetric is True:
         p2 = np.empty((Nsoap,Ncomp*(Ncomp + 1)/2, nn))
         stride = [0] + list(range(Ncomp,0,-1))

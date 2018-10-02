@@ -8,19 +8,12 @@ from autograd import grad
 
 from ml_tools.base import np,sp
 
-from ml_tools.utils import load_data,tqdm_cs,get_score,dump_json,load_json
+from ml_tools.utils import load_data,tqdm_cs,get_score,dump_json,load_json,load_pck
 from ml_tools.models import KRRFastCV
 from ml_tools.kernels import KernelPower
 from ml_tools.split import EnvironmentalKFold
 from ml_tools.compressor import CompressorCovarianceUmat
 
-from ml_tools.math_utils.optimized import power 
-from autograd.extend import primitive, defvjp
-def power_vjp(ans, x,zeta):
-    x_shape = x.shape
-    return lambda g: np.full(x_shape, g) * zeta * power(x,zeta-1) 
-    
-defvjp(power, power_vjp)
 
 def get_sp_mapping(frames,sp):
     ii = 0
@@ -123,15 +116,61 @@ def soap_cov_loss(x_opt,rawsoaps,y,cv,jitter,disable_pbar=True,leave=False,compr
     
     return mse
 
+def sor_fj_loss(x_opt,data,y,cv,jitter,disable_pbar=True,leave=False,kernel=None,compressor=None,return_score=False):
+    Lambda = x_opt[0]
+    fj = x_opt[1:]
+    
+    compressor.set_fj(fj)
+    
+    unlinsoaps = data[0]
+    unlinsoaps_active = data[1]
+    X = compressor.transform(unlinsoaps)
+    X_active = compressor.transform(unlinsoaps_active)
+    
+    # kMM = kernel(X_active,X_active)
+    # kMN = kernel(X_active,X)
+    # TODO generalize to other kernels
+    zeta = kernel.zeta
+    kMM = np.power(np.dot(X_active,X_active.T),zeta)
+    kMN = np.power(np.dot(X_active,X.T),zeta)
+    Mactive,Nsample = kMN.shape
+    
+    mse = 0
+    y_p = np.zeros((Nsample,))
+    for train,test in tqdm_cs(cv.split(X),total=cv.n_splits,disable=disable_pbar,leave=False):
+        # prepare SoR kernel
+        kMN_train =  kMN[:,train]
+        kernel_train = (kMM + np.dot(kMN_train,kMN_train.T)/Lambda**2) + np.diag(np.ones(Mactive))*jitter
+        y_train = np.dot(kMN_train,y[train])/Lambda**2
+        
+        # train the KRR model       
+        alpha = np.linalg.solve(kernel_train, y_train).flatten()
+        
+        # make predictions
+        kernel_test = kMN[:,test]
+        y_pred = np.dot(alpha,kernel_test).flatten()
+        if return_score is True:
+            y_p[test] = y_pred
+        
+        mse += np.sum((y_pred-y[test])**2) 
+    mse /= len(y)
+    
+    if return_score is True:
+        score = get_score(y_p,y)
+        return score
+    
+    return mse
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="""Get CV score using full covariance mat""")
 
     parser.add_argument("--X", type=str, help="Name of the metadata file refering to the input data")
-    parser.add_argument("--Nfps", type=int, help="Number of pseudo input to take from the fps ids")
+    parser.add_argument("--Nfps", type=int,default=1, help="Number of pseudo input to take from the fps ids")
     parser.add_argument("--Xinit", type=str, help="Comma-separated list of initial parameters to optimize over")
     parser.add_argument("--Nfold", type=int, help="Number of folds for the CV")
     parser.add_argument("--jitter", type=float,default=1e-8, help="Jitter for numerical stability of Cholesky")
-    parser.add_argument("--loss", type=str, help="Name of the bjective function to optimize with. Possible loss: sor_loss, soap_cov_loss")
+    parser.add_argument("--loss", type=str, help="Name of the bjective function to optimize with. Possible loss: sor_loss, soap_cov_loss, sor_fj_loss")
     parser.add_argument("--compressor", type=str,default='', help="Name of the json file containing the trained compressor data.")
     parser.add_argument("--ftol", type=float,default=1e-6, help="Relative tolerance for the optimization to exit: (f^k - f^{k+1})/max{|f^k|,|f^{k+1}|,1} <= ftol ")
     parser.add_argument("--maxiter", type=int,default=100, help="Max Number of optimization steps")
@@ -154,8 +193,10 @@ if __name__ == '__main__':
     ftol = in_args.ftol
 
     rawsoaps_fn = os.path.abspath(in_args.X)
+    print('Load data from: {}'.format(rawsoaps_fn))
     params,X = load_data(rawsoaps_fn) 
-    fps_ids = params['fps_ids']
+    if 'fps_ids' in params:
+        fps_ids = params['fps_ids']
     soap_params = params['soap_params']
     kernel_params = params['kernel_params']
     env_mapping = params['env_mapping']
@@ -163,9 +204,14 @@ if __name__ == '__main__':
     loss_type = in_args.loss 
     
     if len(in_args.compressor) > 0:
+        compressor_fn = in_args.compressor
+        print('Load compressor from: {}'.format(compressor_fn))
         compressor = CompressorCovarianceUmat()
-        state = load_json(in_args.compressor)
+        state = load_pck(compressor_fn)
         compressor.unpack(state)
+        compressor.to_reshape = False
+    else:
+        compressor_fn = None
     #############################################
     
     cv = EnvironmentalKFold(n_splits=Nfold,random_state=10,shuffle=True,mapping=env_mapping)
@@ -183,6 +229,12 @@ if __name__ == '__main__':
         loss_func = soap_cov_loss
         active_ids = fps_ids[:Nfps]
         args = (X,y,cv,jitter,False,False,compressor,active_ids)
+    elif sor_fj_loss == 'sor_fj_loss':
+        loss_func = sor_fj_loss
+        rawsoaps = X[0]
+        rawsoaps_active = X[1]
+        data = (compressor.reshape_(rawsoaps),compressor.reshape_(rawsoaps_active))
+        args = (X,y,cv,jitter,False,False,kernel,compressor)
     else:
         raise ValueError('loss function: {}, does not exist.'.format(loss_type))
 
@@ -199,6 +251,7 @@ if __name__ == '__main__':
 
     data = dict(x_opt=x_opt.x.tolist(),score=score,x_init=x_init,
                 maxiter=maxiter,ftol=ftol,loss_type=loss_type,Nfps=Nfps,
+                compressor_fn=compressor_fn,
                 Nfold=Nfold,rawsoaps_fn=rawsoaps_fn,prop_fn=prop_fn,message=x_opt.message)
     
     print('dump results in {}'.format(out_fn))
