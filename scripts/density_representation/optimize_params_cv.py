@@ -14,7 +14,7 @@ from ml_tools.kernels import KernelPower
 from ml_tools.split import EnvironmentalKFold
 from ml_tools.compressor import CompressorCovarianceUmat
 
-
+ 
 def get_sp_mapping(frames,sp):
     ii = 0
     fid2gids = {it:[] for it in range(len(frames))}

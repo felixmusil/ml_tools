@@ -28,7 +28,7 @@ EXPECTED_INPUT = dict(
   lc_params=dict(n_repeats=[1],train_sizes=[1],test_size=10,random_state=10),
   prop_fn='',
   start_from_iter=0,
-  compressor=dict(fn=''),
+  compressor=dict(fn='',fj=[]),
   out_fn=dict(scores='',results='')
 )
 
@@ -50,24 +50,18 @@ if __name__ == '__main__':
         start_from_iter = inp['start_from_iter']
     else:
         start_from_iter = 0
-    if 'env_mapping_fn' in inp:
-        env_mapping_fn = os.path.abspath(inp['env_mapping_fn'])
-        env_mapping = load_json(env_mapping_fn)
 
     lc_params = inp['lc_params']
     input_data = inp['input_data']
     jitter = inp['model']['params']['jitter']
 
-    if 'sparse_kernel' in inp:
-        active_inp = inp['sparse_kernel']['active_inp']
-        Lambda = inp['sparse_kernel']['params']['Lambda']
-        active_ids = np.load(active_inp['ids_fn'])[:active_inp['Nfps']]
-        Mactive = len(active_ids)
-        delta = 1
-        is_SoR = True
+    if 'env_mapping_fn' in inp:
+        env_mapping_fn = os.path.abspath(inp['env_mapping_fn'])
+        env_mapping = load_json(env_mapping_fn)
+        shuffler = EnvironmentalShuffleSplit
+        lc_params.update(**dict(mapping=env_mapping))
     else:
-        delta = inp['model']['params']['delta']
-        is_SoR = False
+        shuffler = ShuffleSplit
 
     if 'compressor' in inp:
         compressor_fn = inp['compressor']['fn']
@@ -81,6 +75,20 @@ if __name__ == '__main__':
         compressor.to_reshape = True 
     else:
         has_compressor = False
+
+    if 'sparse_kernel' in inp:
+        active_inp = inp['sparse_kernel']['active_inp']
+        Lambda = inp['sparse_kernel']['params']['Lambda']
+        if has_compressor is False:
+            active_ids = np.load(active_inp['ids_fn'])[:active_inp['Nfps']]
+            
+        delta = 1
+        is_SoR = True
+    else:
+        delta = inp['model']['params']['delta']
+        is_SoR = False
+
+    
 
     if 'frames_fn' in input_data:
       frames_fn = os.path.abspath(input_data['frames_fn'])
@@ -106,16 +114,19 @@ if __name__ == '__main__':
         Nsample = len(X)
         if is_SoR is True:
             X_active = X[active_ids]
+            Mactive = len(active_ids)
     elif compute_rep is False and compute_kernel is True and has_compressor is False:
         params,X = load_data(rawsoaps_fn,mmap_mode=None)
         Nsample = len(X)
         if is_SoR is True:
             X_active = X[active_ids]
+            Mactive = len(active_ids)
     elif compute_rep is False and compute_kernel is True and has_compressor is True:
         params,data = load_data(rawsoaps_fn,mmap_mode=None)
         X = compressor.transform(data[0])
         X_active = compressor.transform(data[1])
         Nsample = len(X)
+        Mactive = len(X_active)
         
     print('Get kernel')
     if compute_kernel is True:
@@ -138,7 +149,7 @@ if __name__ == '__main__':
    
     trainer = TrainerCholesky(memory_efficient=True)
     model = KRR(jitter,delta,trainer)
-    lc = LCSplit(ShuffleSplit, **lc_params)
+    lc = LCSplit(shuffler, **lc_params)
 
     scores = []
     results = dict(input_params=inp,results=[])
@@ -147,11 +158,11 @@ if __name__ == '__main__':
         if ii >= start_from_iter:
             if is_SoR is True:
                 kMN_train =  kMN[:,train]
-                k_train = kMM + np.dot(kMN_train,kMN_train.T)/Lambda**2
+                k_train = kMM + np.dot(kMN_train,kMN_train.T)/Lambda**2 + np.diag(np.ones(Mactive))*jitter
                 y_train = np.dot(kMN_train,y[train])/Lambda**2
                 k_test = kMN[:,test]
             else:
-                k_train = Kmat[np.ix_(train,train)]
+                k_train = Kmat[np.ix_(train,train)] + np.diag(np.ones(Nsample))*jitter
                 y_train = y[train]
                 k_test = Kmat[np.ix_(test,train)]
 
