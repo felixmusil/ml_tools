@@ -55,14 +55,14 @@ if __name__ == '__main__':
     input_data = inp['input_data']
     jitter = inp['model']['params']['jitter']
 
-    if 'env_mapping_fn' in inp:
-        env_mapping_fn = os.path.abspath(inp['env_mapping_fn'])
-        env_mapping = load_json(env_mapping_fn)
-        shuffler = EnvironmentalShuffleSplit
-        lc_params.update(**dict(mapping=env_mapping))
-    else:
-        shuffler = ShuffleSplit
-
+    # if 'env_mapping_fn' in inp:
+    #     env_mapping_fn = os.path.abspath(inp['env_mapping_fn'])
+    #     env_mapping = load_json(env_mapping_fn)
+    #     shuffler = EnvironmentalShuffleSplit
+    #     lc_params.update(**dict(mapping=env_mapping))
+    # else:
+    #     shuffler = ShuffleSplit
+    shuffler = ShuffleSplit
     if 'compressor' in inp:
         compressor_fn = inp['compressor']['fn']
         has_compressor = True
@@ -79,9 +79,9 @@ if __name__ == '__main__':
     if 'sparse_kernel' in inp:
         active_inp = inp['sparse_kernel']['active_inp']
         Lambda = inp['sparse_kernel']['params']['Lambda']
-        if has_compressor is False:
-            active_ids = np.load(active_inp['ids_fn'])[:active_inp['Nfps']]
-            
+        
+        active_ids = np.load(active_inp['ids_fn'])[:active_inp['Nfps']]
+        Mactive = len(active_ids)
         delta = 1
         is_SoR = True
     else:
@@ -97,7 +97,7 @@ if __name__ == '__main__':
       compute_kernel = True
     elif 'feature_mat_fn' in input_data:
       rawsoaps_fn = os.path.abspath(input_data['feature_mat_fn'])
-      kernel = KernelPower(**inp['kernel_params'])
+      kernel = KernelPower(**inp['base_kernel']['params'])
       compute_rep = False
       compute_kernel = True
     elif 'Kmat_fn' in input_data:
@@ -107,28 +107,27 @@ if __name__ == '__main__':
         
     #############################################
 
-    print('Get representation')
+    print('Getting representation')
+    sys.stdout.flush()
     if compute_rep is True:
         frames = read(frames_fn,index=':')
         X = representation.transform(frames)
         Nsample = len(X)
-        if is_SoR is True:
-            X_active = X[active_ids]
-            Mactive = len(active_ids)
-    elif compute_rep is False and compute_kernel is True and has_compressor is False:
+    elif compute_rep is False and compute_kernel is True:
         params,X = load_data(rawsoaps_fn,mmap_mode=None)
         Nsample = len(X)
-        if is_SoR is True:
-            X_active = X[active_ids]
-            Mactive = len(active_ids)
-    elif compute_rep is False and compute_kernel is True and has_compressor is True:
-        params,data = load_data(rawsoaps_fn,mmap_mode=None)
-        X = compressor.transform(data[0])
-        X_active = compressor.transform(data[1])
-        Nsample = len(X)
-        Mactive = len(X_active)
         
-    print('Get kernel')
+    if is_SoR is True:
+        X_active = X[active_ids]
+
+    if has_compressor is True:
+        X = compressor.transform(X)
+        X_active = compressor.transform(X_active)
+        
+        
+        
+    print('Getting kernel')
+    sys.stdout.flush()
     if compute_kernel is True:
         if is_SoR is True:
             kMM = kernel(X_active,X_active)
@@ -184,4 +183,6 @@ if __name__ == '__main__':
             dump_pck(results_fn,results)
         ii += 1
 
+
+    print('Finished')
     
