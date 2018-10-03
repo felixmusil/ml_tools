@@ -161,6 +161,26 @@ def sor_fj_loss(x_opt,data,y,cv,jitter,disable_pbar=True,leave=False,kernel=None
     
     return mse
 
+def LL_sor_loss(x_opt,X,y,cv,jitter,disable_pbar=True,leave=False,return_score=False):
+    Lambda = x_opt[0]
+    
+    kMM = X[0]
+    kMN = X[1]
+    Mactive,Nsample = kMN.shape
+    
+    kernel_ = kMM + np.dot(kMN,kMN.T)/Lambda**2 + np.diag(np.ones(Mactive))*jitter
+    y_ = np.dot(kMN,y)/Lambda**2
+    
+    # Get log likelihood score
+    L = np.linalg.cholesky(kernel_)
+    z = sp.linalg.solve_triangular(L,y_,lower=True)
+    alpha = sp.linalg.solve_triangular(L.T,z,lower=False,overwrite_b=True).flatten()
+    #alpha = np.linalg.solve(kernel_train, y_train).flatten()
+    diag = np.zeros((Mactive))
+    for ii in range(Mactive): diag[ii] = L[ii,ii]
+    logL = -0.5* Mactive * np.log(2*np.pi) - 0.5 * np.vdot(y_,alpha) - np.sum(np.log(diag))
+    return logL
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="""Get CV score using full covariance mat""")
@@ -209,7 +229,7 @@ if __name__ == '__main__':
         compressor = CompressorCovarianceUmat()
         state = load_pck(compressor_fn)
         compressor.unpack(state)
-        #compressor.to_reshape = False
+        compressor.to_reshape = False
     else:
         compressor_fn = None
     #############################################
@@ -234,7 +254,7 @@ if __name__ == '__main__':
         rawsoaps = X[0]
         rawsoaps_active = X[1]
         data = (compressor.reshape_(rawsoaps),compressor.reshape_(rawsoaps_active))
-        args = (X,y,cv,jitter,False,False,kernel,compressor)
+        args = (data,y,cv,jitter,False,False,kernel,compressor)
     else:
         raise ValueError('loss function: {}, does not exist.'.format(loss_type))
 

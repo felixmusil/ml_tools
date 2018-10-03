@@ -173,3 +173,112 @@ def get_unlin_soap(rawsoap,params,global_species):
             p[:,s2, s1] = p[:,s1, s2].transpose((0, 2, 1, 3))
     
     return p
+
+
+
+
+class CompressorCovarianceUmat_old(BaseEstimator,TransformerMixin):
+    def __init__(self,soap_params=None,compression_type='species',dj=5,fj=None,symmetric=False,to_reshape=True):
+        self.dj = dj
+        self.compression_type = compression_type
+        self.soap_params = soap_params
+        self.fj = fj
+        self.symmetric = symmetric
+        self.to_reshape = to_reshape
+    def get_params(self,deep=True):
+        params = dict(dj=self.dj,compression_type=self.compression_type,
+                      soap_params=self.soap_params,fj=self.fj,
+                      symmetric=self.symmetric,to_reshape=self.to_reshape)
+        return params
+    
+    def set_params(self,params):
+        self.dj = params['dj']
+        self.compression_type = params['compression_type']
+        self.soap_params = params['soap_params']
+        self.fj = params['fj']
+        self.symmetric = params['symmetric']
+        self.to_reshape = params['to_reshape']
+
+        
+    def set_fj(self,fj):
+        #self.u_mat = None
+        self.fj = fj
+        self.dj = len(fj)
+    def reshape_(self,X):
+        unwrapped_X = get_unlin_soap(X,self.soap_params,self.soap_params['global_species'])
+        
+        Nsample,nspecies, nspecies, nmax, nmax, lmax1 =  unwrapped_X.shape
+        
+        if self.compression_type == 'species':
+            X_c = unwrapped_X.reshape((Nsample,nspecies, nspecies,nmax**2*lmax1))
+        elif self.compression_type == 'radial':
+            X_c = unwrapped_X.transpose(0,3,4,1,2,5).reshape((Nsample,nmax, nmax,nspecies**2*lmax1))
+        elif self.compression_type == 'species+radial':
+            X_c = unwrapped_X.transpose(0,1,3,2,4,5).reshape((Nsample,nspecies*nmax, nspecies*nmax,lmax1))
+        return X_c
+    
+    def fit(self,X):
+        
+        if self.to_reshape:
+            X_c = self.reshape_(X)
+        else:
+            X_c = X
+        
+        self.u_mat_full, self.eig = get_covariance_umat_full(X_c)
+        
+        return self
+    
+    def transform(self,X):
+        if self.to_reshape:
+            X_c = self.reshape_(X)
+        else:
+            X_c = X
+        
+        if self.fj is not None:
+            #u_mat = np.dot(self.fj,self.u_mat_full[:self.dj,:])
+            u_mat = np.einsum("ja,j->ja",self.u_mat_full[:self.dj,:],self.fj,optimize='optimal')
+        else:
+            u_mat = self.u_mat_full[:self.dj,:]
+        return get_compressed_soap(X_c,u_mat,symmetric=self.symmetric)
+    
+    def fit_transform(self,X):
+        if self.to_reshape:
+            X_c = self.reshape_(X)
+        else:
+            X_c = X
+
+        self.u_mat_full,self.eig = get_covariance_umat_full(X_c)
+        if self.fj is not None:
+            u_mat = np.dot(self.fj,self.u_mat_full[:self.dj,:])
+            #u_mat = np.einsum("ja,j->ja",self.u_mat_full[:self.dj,:],self.fj,optimize='optimal')
+        else:
+            u_mat = self.u_mat_full[:self.dj,:]
+        
+        return get_compressed_soap(X_c,u_mat,symmetric=self.symmetric)
+
+    def pack(self):
+        params = self.get_params()
+        data = dict(u_mat_full=self.u_mat_full.tolist(),
+                    eig=self.eig.tolist())
+        state = dict(data=data,
+                     params=params)
+        return state
+
+    def unpack(self,state):
+        self.set_params(state['params'])
+        self.u_mat_full = np.array(state['data']['u_mat_full'])
+        self.eig = np.array(state['data']['eig'])
+
+
+def get_covariance_umat_full_old(unlinsoap):
+    '''
+    Compute the covariance of the given unlinsoap and decomposes it 
+    unlinsoap.shape = (Nsoap,Nfull,Nfull,nn)
+    '''
+    cov = unlinsoap.mean(axis=(0,3))
+    eva,eve = np.linalg.eigh(cov)
+    eva = np.flip(eva,axis=0)
+    eve = np.flip(eve,axis=1)
+    #eve = eve*np.sqrt(eva).reshape((1,-1))
+
+    return eve.T,eva.flatten()
