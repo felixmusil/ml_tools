@@ -131,10 +131,12 @@ if __name__ == '__main__':
     if compute_kernel is True:
         if is_SoR is True:
             kMM = kernel(X_active,X_active)
-            kMN = kernel(X_active,X)    
+            kMN = kernel(X_active,X)   
+            Nsample = kMN.shape[1] 
         else:
             Kmat = kernel.transform(X)
-        Nsample = kMN.shape[1]
+            Nsample = Kmat.shape[0]
+        
     elif compute_rep is False and compute_kernel is False:
         if is_SoR is True:
             params,Kmat = load_data(Kmat_fn,mmap_mode=None)
@@ -143,7 +145,7 @@ if __name__ == '__main__':
             kMN = Kmat[active_ids]
         else:
             params,Kmat = load_data(Kmat_fn,mmap_mode=None)
-            Nsample = Kmat.shape[0]
+        Nsample = Kmat.shape[0]
   
    
     trainer = TrainerCholesky(memory_efficient=True)
@@ -163,7 +165,7 @@ if __name__ == '__main__':
             else:
                 k_train = Kmat[np.ix_(train,train)] + np.diag(np.ones(Nsample))*jitter
                 y_train = y[train]
-                k_test = Kmat[np.ix_(test,train)]
+                k_test = Kmat[np.ix_(train,test)]
 
             alpha = np.linalg.solve(k_train, y_train).flatten()
             y_pred = np.dot(alpha,k_test).flatten()

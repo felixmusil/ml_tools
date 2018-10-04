@@ -54,6 +54,7 @@ def sor_loss(x_opt,X,y,cv,jitter,disable_pbar=True,leave=False,return_score=Fals
     
     mse = 0
     y_p = np.zeros((Nsample,))
+    scores = []
     for train,test in tqdm_cs(cv.split(kMN.T),total=cv.n_splits,disable=disable_pbar,leave=False):
         # prepare SoR kernel
         kMN_train =  kMN[:,train]
@@ -67,13 +68,20 @@ def sor_loss(x_opt,X,y,cv,jitter,disable_pbar=True,leave=False,return_score=Fals
         kernel_test = kMN[:,test]
         y_pred = np.dot(alpha,kernel_test).flatten()
         if return_score is True:
-            y_p[test] = y_pred
+            scores.append(get_score(y_pred,y[test]))
+            #y_p[test] = y_pred
         
         mse += np.sum((y_pred-y[test])**2) 
     mse /= len(y)
     
     if return_score is True:
-        score = get_score(y_p,y)
+        #score = get_score(y_p,y)
+        score = {}
+        for k in scores[0]:
+            aa = []
+            for sc in scores:
+                aa.append(sc[k])
+            score[k] = np.mean(aa)
         return score
     return mse
 
@@ -119,9 +127,9 @@ def soap_cov_loss(x_opt,rawsoaps,y,cv,jitter,disable_pbar=True,leave=False,compr
 def sor_fj_loss(x_opt,data,y,cv,jitter,disable_pbar=True,leave=False,kernel=None,compressor=None,return_score=False):
     Lambda = x_opt[0]
     fj = x_opt[1:]
-    
+    compressor.to_reshape = False
     compressor.set_fj(fj)
-    
+
     unlinsoaps = data[0]
     unlinsoaps_active = data[1]
     X = compressor.transform(unlinsoaps)
@@ -137,6 +145,7 @@ def sor_fj_loss(x_opt,data,y,cv,jitter,disable_pbar=True,leave=False,kernel=None
     
     mse = 0
     y_p = np.zeros((Nsample,))
+    scores = []
     for train,test in tqdm_cs(cv.split(X),total=cv.n_splits,disable=disable_pbar,leave=False):
         # prepare SoR kernel
         kMN_train =  kMN[:,train]
@@ -150,18 +159,25 @@ def sor_fj_loss(x_opt,data,y,cv,jitter,disable_pbar=True,leave=False,kernel=None
         kernel_test = kMN[:,test]
         y_pred = np.dot(alpha,kernel_test).flatten()
         if return_score is True:
-            y_p[test] = y_pred
+            scores.append(get_score(y_pred,y[test]))
+            #y_p[test] = y_pred
         
         mse += np.sum((y_pred-y[test])**2) 
     mse /= len(y)
     
     if return_score is True:
-        score = get_score(y_p,y)
+        #score = get_score(y_p,y)
+        score = {}
+        for k in scores[0]:
+            aa = []
+            for sc in scores:
+                aa.append(sc[k])
+            score[k] = np.mean(aa)
         return score
     
     return mse
 
-def LL_sor_loss(x_opt,X,y,cv,jitter,disable_pbar=True,leave=False,return_score=False):
+def LL_sor_loss(x_opt,X,y,cv,jitter,disable_pbar=True,leave=False):
     Lambda = x_opt[0]
     
     kMM = X[0]
@@ -176,9 +192,12 @@ def LL_sor_loss(x_opt,X,y,cv,jitter,disable_pbar=True,leave=False,return_score=F
     z = sp.linalg.solve_triangular(L,y_,lower=True)
     alpha = sp.linalg.solve_triangular(L.T,z,lower=False,overwrite_b=True).flatten()
     #alpha = np.linalg.solve(kernel_train, y_train).flatten()
-    diag = np.zeros((Mactive))
-    for ii in range(Mactive): diag[ii] = L[ii,ii]
-    logL = -0.5* Mactive * np.log(2*np.pi) - 0.5 * np.vdot(y_,alpha) - np.sum(np.log(diag))
+    #diag = np.zeros((Mactive))
+    #for ii in range(Mactive): diag[ii] = L[ii,ii]
+    logDet = 0
+    for ii in range(Mactive):
+        logDet += np.log(L[ii,ii])
+    logL = -0.5* Mactive * np.log(2*np.pi) - 0.5 * np.dot(y_.flatten(),alpha) - logDet
     return logL
 
 

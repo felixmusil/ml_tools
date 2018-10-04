@@ -1,9 +1,10 @@
 from sklearn.utils.metaestimators import _safe_split
-from ..base import np,sp
+from ..base import np,sp,BaseEstimator
+from ..utils import tqdm_cs
 
-class CrossValidationScorer(object):
+class CrossValidationScorer(BaseEstimator):
     def __init__(self,cv=None,estimator=None,score_func=None,estimator_params=None):
-        super(CrossValidationScorer, self).__init__()
+        #super(CrossValidationScorer, self).__init__()
         if cv is None and estimator is None:
             pass
         self.cv = cv
@@ -65,4 +66,39 @@ class CrossValidationScorer(object):
         self.params = state['params']
         self.predictions = state['predictions']
 
+class SoRCrossValidationScorer(CrossValidationScorer):
+    def __init__(self,cv=None,score_func=None,estimator_params=None):
+        # super(SoRCrossValidationScorer, self).__init__(
+        #         cv=cv,score_func=score_func)
+        self.cv = cv
+        self.score_func = score_func
+        self.Lambda = estimator_params['Lambda']
+        self.jitter = estimator_params['jitter']
         
+    def fit(self,X,y):
+        kMM,kMN = X[0],X[1]
+        self.scores = {k:[] for k in self.score_func}
+        self.predictions = []
+        Mactive,Nsample = kMN.shape
+        
+        for train,test in tqdm_cs(self.cv.split(kMN.T),desc='CV score',total=self.cv.n_splits):
+            # prepare SoR kernel
+            kMN_train =  kMN[:,train]
+            kernel_train = kMM + np.dot(kMN_train,kMN_train.T)/self.Lambda**2 + np.diag(np.ones(Mactive))*self.jitter
+            y_train = np.dot(kMN_train,y[train])/self.Lambda**2
+            
+            # train the KRR model
+            alpha = np.linalg.solve(kernel_train, y_train).flatten()
+            
+            # make predictions
+            kernel_test = kMN[:,test]
+            y_true = y[test]
+            y_pred = np.dot(alpha,kernel_test).flatten()
+            
+            self.predictions.append(dict(y_ref=y_true,y_pred=y_pred))
+            for k,func in self.score_func.iteritems():
+                self.scores[k].append(func(y_true,y_pred))
+            
+        self.score = {k:np.mean(self.scores[k]) for k in self.score_func}
+            
+    

@@ -4,5 +4,5 @@ except:
   pass
 
 from .fps import FPSFilter
-
-from .powerspectrum_cov import CompressorCovarianceUmat
+ 
+from .powerspectrum_cov import CompressorCovarianceUmat,AngularScaler
