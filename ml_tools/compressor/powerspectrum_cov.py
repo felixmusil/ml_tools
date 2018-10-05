@@ -12,7 +12,8 @@ class CompressorCovarianceUmat(BaseEstimator,TransformerMixin):
     def get_params(self,deep=True):
         params = dict(dj=self.dj,compression_type=self.compression_type,
                       soap_params=self.soap_params,fj=self.fj,
-                      symmetric=self.symmetric,to_reshape=self.to_reshape)
+                      symmetric=self.symmetric,to_reshape=self.to_reshape,
+                      einsum_str=self.einsum_str,)
         return params
     
     def set_params(self,params):
@@ -22,6 +23,17 @@ class CompressorCovarianceUmat(BaseEstimator,TransformerMixin):
         self.fj = params['fj']
         self.symmetric = params['symmetric']
         self.to_reshape = params['to_reshape']
+        self.einsum_str = params['einsum_str']
+
+        nspecies = len(self.soap_params['global_species'])
+        lmax1 = self.soap_params['lmax'] + 1
+        nmax = self.soap_params['nmax']
+        identity = lambda x: x 
+        reshape = lambda x: x.transpose(0,1,3,2,4,5).reshape((-1,nspecies*nmax, nspecies*nmax,lmax1))
+        if 'species*radial' in self.compression_type:
+            self.modify = reshape
+        else:
+            self.modify = identity
 
     def set_fj(self,x):
         #self.u_mat = None
@@ -91,7 +103,6 @@ class CompressorCovarianceUmat(BaseEstimator,TransformerMixin):
             eve = np.flip(eve,axis=2)
             return eve.transpose((0,2,1)),eva
         
-
     def fit(self,X):
         
         if self.to_reshape:
