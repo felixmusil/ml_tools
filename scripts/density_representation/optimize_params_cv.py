@@ -132,8 +132,8 @@ def sor_fj_loss(x_opt,data,y,cv,jitter,disable_pbar=True,leave=False,kernel=None
 
     unlinsoaps = data[0]
     unlinsoaps_active = data[1]
-    X = compressor.transform(unlinsoaps)
-    X_active = compressor.transform(unlinsoaps_active)
+    X = compressor.scale_features(unlinsoaps)
+    X_active = compressor.scale_features(unlinsoaps_active)
     
     # kMM = kernel(X_active,X_active)
     # kMN = kernel(X_active,X)
