@@ -147,7 +147,8 @@ class CompressorCovarianceUmat(BaseEstimator,TransformerMixin):
             args += [self.fj,self.fj,projected_unlinsoap]
         elif 'angular' in self.compression_type:
             args += [self.fl,self.fj,self.fj,projected_unlinsoap]
-            
+        
+        
         kwargs = dict(optimize='optimal')
         p = np.einsum(*args,**kwargs)
 

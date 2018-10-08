@@ -142,10 +142,7 @@ def sor_fj_loss(x_opt,data,y,cv,jitter,disable_pbar=True,leave=False,kernel=None
     # X_active = compressor.transform(unlinsoaps_active)
     kMM = kernel(X_active,X_active)
     kMN = kernel(X_active,X)
-    # # TODO generalize to other kernels
-    # zeta = kernel.zeta
-    # kMM = np.power(np.dot(X_active,X_active.T),zeta)
-    # kMN = np.power(np.dot(X_active,X.T),zeta)
+
     Mactive,Nsample = kMN.shape
     
     mse = 0
@@ -253,7 +250,7 @@ if __name__ == '__main__':
         compressor = CompressorCovarianceUmat()
         state = load_pck(compressor_fn)
         compressor.unpack(state)
-        compressor.to_reshape = False
+        compressor.to_reshape = True
     else:
         compressor_fn = None
     #############################################
@@ -277,7 +274,7 @@ if __name__ == '__main__':
         loss_func = sor_fj_loss
         rawsoaps = X[0]
         rawsoaps_active = X[1]
-        data = (compressor.reshape_(rawsoaps),compressor.reshape_(rawsoaps_active))
+        data = (compressor.project_on_u_mat(rawsoaps),compressor.project_on_u_mat(rawsoaps_active))
         args = (data,y,cv,jitter,False,False,kernel,compressor)
     else:
         raise ValueError('loss function: {}, does not exist.'.format(loss_type))
