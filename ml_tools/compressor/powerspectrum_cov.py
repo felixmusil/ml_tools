@@ -131,9 +131,10 @@ class CompressorCovarianceUmat(BaseEstimator,TransformerMixin):
             X_c = self.modify(self.reshape_(X))
         else:
             X_c = self.modify(X)
-        if self.fj is None and 'angular' not in self.compression_type:
+
+        if 'angular' not in self.compression_type:
             u_mat = self.u_mat_full[:self.dj,:]
-        elif self.fj is None and 'angular' in self.compression_type:
+        elif 'angular' in self.compression_type:
             u_mat = self.u_mat_full[:,:self.dj,:]
 
         return get_compressed_soap(X_c,u_mat,self.einsum_str,symmetric=False,

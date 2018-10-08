@@ -1,11 +1,7 @@
 
 from ..base import KernelBase
 from ..base import np,sp
-
-try:
-    from ..math_utils.optimized import power
-except:
-    from ..math_utils.basic import power
+from ..math_utils import power
 
 
 

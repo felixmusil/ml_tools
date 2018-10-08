@@ -124,9 +124,13 @@ def soap_cov_loss(x_opt,rawsoaps,y,cv,jitter,disable_pbar=True,leave=False,compr
     
     return mse
 
-def sor_fj_loss(x_opt,data,y,cv,jitter,disable_pbar=True,leave=False,kernel=None,compressor=None,return_score=False):
-    Lambda = x_opt[0]
-    fj = x_opt[1:]
+def sor_fj_loss(x_opt,data,y,cv,jitter,disable_pbar=True,leave=False,kernel=None,compressor=None,opt_reg=True,return_score=False):
+    if opt_reg is True:
+        Lambda = x_opt[0]
+        fj = x_opt[1:]
+    else:
+        Lambda = opt_reg
+        fj = x_opt
     compressor.to_reshape = False
     compressor.set_fj(fj)
 
@@ -134,13 +138,14 @@ def sor_fj_loss(x_opt,data,y,cv,jitter,disable_pbar=True,leave=False,kernel=None
     unlinsoaps_active = data[1]
     X = compressor.scale_features(unlinsoaps)
     X_active = compressor.scale_features(unlinsoaps_active)
-    
-    # kMM = kernel(X_active,X_active)
-    # kMN = kernel(X_active,X)
-    # TODO generalize to other kernels
-    zeta = kernel.zeta
-    kMM = np.power(np.dot(X_active,X_active.T),zeta)
-    kMN = np.power(np.dot(X_active,X.T),zeta)
+    # X = compressor.transform(unlinsoaps)
+    # X_active = compressor.transform(unlinsoaps_active)
+    kMM = kernel(X_active,X_active)
+    kMN = kernel(X_active,X)
+    # # TODO generalize to other kernels
+    # zeta = kernel.zeta
+    # kMM = np.power(np.dot(X_active,X_active.T),zeta)
+    # kMN = np.power(np.dot(X_active,X.T),zeta)
     Mactive,Nsample = kMN.shape
     
     mse = 0

@@ -1,25 +1,20 @@
-from numba import njit,prange,void,float64,int32,vectorize
+from numba import njit,prange,void,float64,int32,vectorize,jit,config,threading_layer
 import math
-# from ..base import np
-# from autograd.extend import primitive,defvjp,defjvp
+from ..base import np
+from autograd.extend import primitive,defvjp,defjvp
+from autograd.numpy.numpy_vjps import unbroadcast_f,replace_zero
 
-# @primitive
-@vectorize([float64(float64, float64),float64(float64, int32)])
+@primitive
+@vectorize(["float64(float64, float64)","float64(float64, int32)"],target='parallel')
 def power(x,zeta):
     return math.pow(x,zeta)
 
-# def power_vjp(ans, x,zeta):
-#     x_shape = x.shape
-#     return lambda g: np.full(x_shape, g) * zeta * power(x,zeta-1) 
-    
-# defvjp(power, power_vjp)
+defvjp(power,
+    lambda ans, x, y : unbroadcast_f(x, lambda g: g * y * power(x,np.where(y, y - 1, 1.))),
+    lambda ans, x, y : unbroadcast_f(y, lambda g: g * np.log(replace_zero(x, 1.)) * power(x,y))
+      )  
 
-# from autograd.numpy.numpy_vjps import unbroadcast_f,replace_zero
-
-# defvjp(power,
-#     lambda ans, x, y : unbroadcast_f(x, lambda g: g * y * x ** np.where(y, y - 1, 1.)),
-#     lambda ans, x, y : unbroadcast_f(y, lambda g: g * np.log(replace_zero(x, 1.)) * x ** y))  
-
-# defjvp(power,      
-#     lambda g, ans, x, y : g * y * x ** np.where(y, y - 1, 1.),
-#     lambda g, ans, x, y : g * np.log(replace_zero(x, 1.)) * x ** y)
+defjvp(power,      
+    lambda g, ans, x, y : g * y * power(x,y-1),
+    lambda g, ans, x, y : g * np.log(replace_zero(x, 1.)) * power(x,y)
+      )
