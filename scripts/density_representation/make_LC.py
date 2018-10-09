@@ -117,10 +117,10 @@ if __name__ == '__main__':
         params,X = load_data(rawsoaps_fn,mmap_mode=None)
         Nsample = len(X)
         
-    if is_SoR is True:
+    if is_SoR is True and compute_kernel is True:
         X_active = X[active_ids]
 
-    if has_compressor is True:
+    if has_compressor is True and compute_kernel is True:
         X = compressor.transform(X)
         X_active = compressor.transform(X_active)
         
