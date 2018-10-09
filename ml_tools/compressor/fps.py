@@ -35,7 +35,7 @@ class FPSFilter(BaseEstimator,TransformerMixin):
             x = X
         
         if dry_run:
-            Nselect = len(x)
+            Nselect = x.shape[0]
         else:
             Nselect = self.Nselect
         
@@ -82,8 +82,8 @@ class FPSFilter(BaseEstimator,TransformerMixin):
 
 
 def do_fps_feature(x=None, d=0,init=0,disable_pbar=True,kernel=None):
-    if d == 0 : d = len(x)
-    n = len(x)
+    if d == 0 : d = x.shape[0]
+    n = x.shape[0]
     iy = np.zeros(d, int)
     # faster evaluation of Euclidean distance
     n2 = np.zeros((n,))

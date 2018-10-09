@@ -2,7 +2,7 @@
 from ..base import KernelBase
 from ..base import np,sp
 from ..math_utils import power
-
+from scipy.sparse import issparse
 
 
 class KernelPower(KernelBase):
@@ -24,7 +24,13 @@ class KernelPower(KernelBase):
     def __call__(self, X, Y=None, eval_gradient=False):
         if Y is None:
             Y = X
-        return power(np.dot(X,Y.T),self.zeta)
+        if issparse(X) is False:
+            return power(np.dot(X,Y.T),self.zeta)
+        if issparse(X) is True:
+            N, M = X.shape[0],Y.shape[0]
+            kk = np.zeros((N,M))
+            X.dot(Y.T).todense(out=kk)
+            return power(kk,self.zeta)
           
     def pack(self):
         state = dict(zeta=self.zeta)
