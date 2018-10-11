@@ -46,10 +46,11 @@ def optimize_loss(loss_func,x_start=None,args=None,maxiter=100,ftol=1e-6):
     return myop
 
 def sor_loss(x_opt,X,y,cv,jitter,disable_pbar=True,leave=False,return_score=False):
-    Lambda = x_opt[0]
     
+    Lambda = x_opt[0]
     kMM = X[0]
     kMN = X[1]
+    
     Mactive,Nsample = kMN.shape
     
     mse = 0

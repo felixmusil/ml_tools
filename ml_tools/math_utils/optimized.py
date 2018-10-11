@@ -18,3 +18,5 @@ defjvp(power,
     lambda g, ans, x, y : g * y * power(x,y-1),
     lambda g, ans, x, y : g * np.log(replace_zero(x, 1.)) * power(x,y)
       )
+
+      

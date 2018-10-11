@@ -1,6 +1,6 @@
 from ..base import np,sp
 from ..base import BaseEstimator,TransformerMixin
-
+ 
 class CompressorCovarianceUmat(BaseEstimator,TransformerMixin):
     def __init__(self,soap_params=None,compression_type='species',dj=5,fj=None,
                     symmetric=False,to_reshape=True,normalize=True):
@@ -41,13 +41,17 @@ class CompressorCovarianceUmat(BaseEstimator,TransformerMixin):
         else:
             self.modify = identity
 
-    def set_fj(self,x):
+    def set_fj(self,x,xl=None):
         #self.u_mat = None
-        if 'angular' in self.compression_type:
+        if 'angular' in self.compression_type and xl is None:
             # angular at the front and rest after
             self.dl = self.soap_params['lmax']+1
             self.fl = x[:self.dl]
             self.fj = x[self.dl:]
+        elif 'angular' in self.compression_type and xl is not None:
+            self.fl = xl
+            self.dl = len(xl)
+            self.fj = x
         else:
             self.fj = x
         self.dj = len(self.fj)
@@ -126,7 +130,7 @@ class CompressorCovarianceUmat(BaseEstimator,TransformerMixin):
         
         return self
     
-    def project_on_u_mat(self,X):
+    def project_on_u_mat(self,X,compression_only=False):
         if self.to_reshape:
             X_c = self.modify(self.reshape_(X))
         else:
@@ -136,9 +140,13 @@ class CompressorCovarianceUmat(BaseEstimator,TransformerMixin):
             u_mat = self.u_mat_full[:self.dj,:]
         elif 'angular' in self.compression_type:
             u_mat = self.u_mat_full[:,:self.dj,:]
-
-        return get_compressed_soap(X_c,u_mat,self.einsum_str,symmetric=False,
+            
+        if compression_only is False:
+            return get_compressed_soap(X_c,u_mat,self.einsum_str,symmetric=False,
                                 lin_out=False,normalize=self.normalize)
+        elif compression_only is True:
+            return get_compressed_soap(X_c,u_mat,self.einsum_str,symmetric=True,
+                                lin_out=True,normalize=self.normalize)
 
     def scale_features(self,projected_unlinsoap):
         
