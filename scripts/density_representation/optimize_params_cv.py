@@ -274,8 +274,12 @@ if __name__ == '__main__':
         args = (X,y,cv,jitter,False,False,compressor,active_ids)
     elif loss_type == 'sor_fj_loss':
         loss_func = sor_fj_loss
-        rawsoaps = X[0]
-        rawsoaps_active = X[1]
+        if len(X) == 2: # is an ndddarray of len 2 containing 2 pyobject
+            rawsoaps = X[0]
+            rawsoaps_active = X[1]
+        else:
+            rawsoaps = X
+            rawsoaps_active = X[fps_ids[:Nfps]]
         data = (compressor.project_on_u_mat(rawsoaps),compressor.project_on_u_mat(rawsoaps_active))
         args = (data,y,cv,jitter,False,False,kernel,compressor)
     else:
