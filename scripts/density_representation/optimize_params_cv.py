@@ -14,7 +14,7 @@ from ml_tools.kernels import KernelPower
 from ml_tools.split import EnvironmentalKFold
 from ml_tools.compressor import CompressorCovarianceUmat
 
- 
+
 def get_sp_mapping(frames,sp):
     ii = 0
     fid2gids = {it:[] for it in range(len(frames))}
@@ -252,6 +252,7 @@ if __name__ == '__main__':
         state = load_pck(compressor_fn)
         compressor.unpack(state)
         compressor.to_reshape = True
+        compressor.set_fj(x_init[:1])
     else:
         compressor_fn = None
     #############################################
