@@ -156,7 +156,8 @@ class CompressorCovarianceUmat(BaseEstimator,TransformerMixin):
         elif 'angular' in self.compression_type:
             args += [self.fl,self.fj,self.fj,projected_unlinsoap]
         
-        
+        print self.scale_features_str
+        print self.fj.shape,projected_unlinsoap.shape
         kwargs = dict(optimize='optimal')
         p = np.einsum(*args,**kwargs)
 
@@ -170,8 +171,9 @@ class CompressorCovarianceUmat(BaseEstimator,TransformerMixin):
             trans = False
 
         if self.symmetric is True:
-            p = p.transpose(0,1,3,2,4,5).reshape(Nsoap,nspecies*nmax, nspecies*nmax, lmax1) if trans is True else p
+            p = np.transpose(p,axes=(0,1,3,2,4,5)).reshape(Nsoap,nspecies*nmax, nspecies*nmax, lmax1) if trans is True else p
             p = symmetrize(p)
+            shape1 = (Nsoap,1,1)
 
         if self.normalize is True:
             pn = np.linalg.norm(p.reshape((Nsoap,-1)),axis=1).reshape(shape1)

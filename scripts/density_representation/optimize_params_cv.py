@@ -1,6 +1,6 @@
 import argparse
 import time
-
+ 
 import sys,os
 sys.path.insert(0,'/home/musil/git/ml_tools/')
 
@@ -251,8 +251,9 @@ if __name__ == '__main__':
         compressor = CompressorCovarianceUmat()
         state = load_pck(compressor_fn)
         compressor.unpack(state)
-        compressor.to_reshape = True
-        compressor.set_fj(x_init[:1])
+        compressor.to_reshape = True 
+        compressor.symmetric = False
+        compressor.set_fj(x_init[1:])
     else:
         compressor_fn = None
     #############################################
