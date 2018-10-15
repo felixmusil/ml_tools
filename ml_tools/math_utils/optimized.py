@@ -21,16 +21,29 @@ defjvp(power,
 
 
 @primitive
-def average_kernel(envKernel,Xstrides,Ystrides):
+def average_kernel(envKernel,Xstrides,Ystrides,is_square):
     N,M = len(Xstrides)-1,len(Ystrides)-1
-    ids = np.zeros((N*M,6),np.int32)
+
+    if is_square is False:
+        ids = np.zeros((N*M,6),np.int32)
+    elif is_square is True:
+        ids = np.zeros((N*(N+1)/2,6),np.int32)
+
+    iii = 0
     for ii,(ist,ind) in enumerate(zip(Xstrides[:-1],Xstrides[1:])):
         for jj,(jst,jnd) in enumerate(zip(Ystrides[:-1],Ystrides[1:])):
-            
-            ids[ii*N+jj,:] = np.asarray([ii,ist,ind,jj,jst,jnd],np.int32)
+            if is_square is True:
+                # computes only lower triangular
+                if ii < jj: continue
+            ids[iii,:] = np.asarray([ii,ist,ind,jj,jst,jnd],np.int32)
+            iii += 1
     
     K = np.zeros((N,M),order='C')
     get_average(K,envKernel,ids)
+    
+    if is_square is True:
+        K += np.tril(K,k=-1).T
+
     return K
 
 @njit(void(float64[:,:], float64[:,:],int32[:,:]),parallel=True)
@@ -43,7 +56,7 @@ def get_average(kernel,env_kernel,ids):
         kernel[ii,jj] /= (sla_nd-sla_st)*(slb_nd-slb_st)
 
 
-def grad_average_kernel(ans, envKernel,Xstrides,Ystrides):
+def grad_average_kernel(ans, envKernel,Xstrides,Ystrides,is_square):
     shape = list(envKernel.shape)
     new_shape = [len(Xstrides)-1,len(Ystrides)-1]
     def vjp(g):
@@ -54,12 +67,12 @@ def grad_average_kernel(ans, envKernel,Xstrides,Ystrides):
             for jj,(jst,jnd) in enumerate(zip(Ystrides[:-1],Ystrides[1:])):
                 ids[ii*N+jj,:] = np.asarray([ii,ist,ind,jj,jst,jnd],np.int32)
                 
-        grad_sum_03_helper(g_repeated,g,ids)
+        grad_average_kernel_helper(g_repeated,g,ids)
         return g_repeated
     return vjp
 
 @njit(void(float64[:,:], float64[:,:],int32[:,:]),parallel=True)
-def grad_sum_03_helper(g_repeated,g,ids):
+def grad_average_kernel_helper(g_repeated,g,ids):
     for it in prange(len(ids)):
         I,sla_st,sla_nd,J,slb_st,slb_nd = ids[it,:]
         for jt in prange(sla_st,sla_nd):

@@ -4,7 +4,7 @@ from ..base import np,sp
 from ..math_utils import power,average_kernel
 from scipy.sparse import issparse
 
-
+ 
 class KernelPower(KernelBase):
     def __init__(self,zeta):
         self.zeta = zeta
