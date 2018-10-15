@@ -1,7 +1,7 @@
 
 from ..base import KernelBase
 from ..base import np,sp
-from ..math_utils import power
+from ..math_utils import power,average_kernel
 from scipy.sparse import issparse
 
 
@@ -61,18 +61,18 @@ class KernelSum(KernelBase):
         
         if X_train is not None:
             Yfeat,Ystrides = X_train['feature_matrix'], X_train['strides']
+            is_square = False
         else:
             Yfeat,Ystrides = None,Xstrides
+            is_square = True
 
         N = len(Xstrides)-1
         M = len(Ystrides)-1
 
         envKernel = self.kernel(Xfeat,Yfeat)
         
-        K = np.zeros((N,M))
-        for ii,(ist,ind) in enumerate(zip(Xstrides[:-1],Xstrides[1:])):
-            for jj,(jst,jnd) in enumerate(zip(Ystrides[:-1],Ystrides[1:])):
-                K[ii,jj] = np.mean(envKernel[ist:ind,jst:jnd])
+        K = average_kernel(envKernel,Xstrides,Ystrides,is_square)
+
         return K
 
     def pack(self):
