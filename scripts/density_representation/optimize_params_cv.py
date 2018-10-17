@@ -1,6 +1,6 @@
 import argparse
 import time
- 
+  
 import sys,os
 sys.path.insert(0,'/home/musil/git/ml_tools/')
 
@@ -215,7 +215,7 @@ if __name__ == '__main__':
     parser.add_argument("--loss", type=str, help="Name of the bjective function to optimize with. Possible loss: sor_loss, soap_cov_loss, sor_fj_loss")
     parser.add_argument("--compressor", type=str,default='', help="Name of the json file containing the trained compressor data.")
     parser.add_argument("--ftol", type=float,default=1e-6, help="Relative tolerance for the optimization to exit: (f^k - f^{k+1})/max{|f^k|,|f^{k+1}|,1} <= ftol ")
-    parser.add_argument("--maxiter", type=int,default=100, help="Max Number of optimization steps")
+    parser.add_argument("--maxiter", type=int,default=300, help="Max Number of optimization steps")
     
     parser.add_argument("--prop", type=str, help="Path to the corresponding properties")
     parser.add_argument("--out", type=str, help="Path to the corresponding output")

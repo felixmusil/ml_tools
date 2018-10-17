@@ -119,7 +119,7 @@ if __name__ == '__main__':
         
     if is_SoR is True and compute_kernel is True:
         X_active = X[active_ids]
-
+    
     if has_compressor is True and compute_kernel is True:
         X = compressor.transform(X)
         X_active = compressor.transform(X_active)

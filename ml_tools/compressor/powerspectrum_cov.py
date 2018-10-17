@@ -1,6 +1,6 @@
 from ..base import np,sp
 from ..base import BaseEstimator,TransformerMixin
- 
+  
 class CompressorCovarianceUmat(BaseEstimator,TransformerMixin):
     def __init__(self,soap_params=None,compression_type='species',dj=5,fj=None,
                     symmetric=False,to_reshape=True,normalize=True):
