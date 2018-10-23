@@ -16,7 +16,7 @@ from ml_tools.compressor import CompressorCovarianceUmat
 from ml_tools.descriptors import RawSoapQUIP
 import pandas as pd
 from ase.io import read
-
+ 
 
 EXPECTED_INPUT = dict(
   soap_params=dict(),
@@ -163,7 +163,8 @@ if __name__ == '__main__':
                 y_train = np.dot(kMN_train,y[train])/Lambda**2
                 k_test = kMN[:,test]
             else:
-                k_train = Kmat[np.ix_(train,train)] + np.diag(np.ones(Nsample))*jitter
+                Ntrain = len(train)
+                k_train = Kmat[np.ix_(train,train)] + np.diag(np.ones(Ntrain))*jitter
                 y_train = y[train]
                 k_test = Kmat[np.ix_(train,test)]
 

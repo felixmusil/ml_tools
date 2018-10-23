@@ -9,7 +9,7 @@ from sklearn.externals.six import with_metaclass
 import collections
 from ..base import np,sp
 
- 
+  
 
 class KFold(_KFold):
     def __init__(self, n_splits=3, shuffle=False,random_state=None):

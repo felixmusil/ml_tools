@@ -1,9 +1,13 @@
 from ..base import np,sp
 from ..base import BaseEstimator,TransformerMixin
-  
+from scipy.sparse import lil_matrix,csr_matrix,issparse
+from ..utils import tqdm_cs,s2hms
+from time import time
+from ..math_utils import symmetrize,get_unlin_soap
+
 class CompressorCovarianceUmat(BaseEstimator,TransformerMixin):
     def __init__(self,soap_params=None,compression_type='species',dj=5,fj=None,
-                    symmetric=False,to_reshape=True,normalize=True):
+                    symmetric=False,to_reshape=True,normalize=True,dtype='float64'):
         self.dj = dj
         self.compression_type = compression_type
         self.soap_params = soap_params
@@ -11,10 +15,12 @@ class CompressorCovarianceUmat(BaseEstimator,TransformerMixin):
         self.symmetric = symmetric
         self.to_reshape = to_reshape
         self.normalize = normalize
+        self.dtype = dtype
 
     def get_params(self,deep=True):
         params = dict(dj=self.dj,compression_type=self.compression_type,
                       soap_params=self.soap_params,fj=self.fj,
+                      dtype=self.dtype,
                       scale_features_str=self.scale_features_str,
                       symmetric=self.symmetric,to_reshape=self.to_reshape,
                       einsum_str=self.einsum_str,normalize=self.normalize)
@@ -25,6 +31,7 @@ class CompressorCovarianceUmat(BaseEstimator,TransformerMixin):
         self.compression_type = params['compression_type']
         self.soap_params = params['soap_params']
         self.fj = params['fj']
+        self.dtype = params['dtype']
         self.symmetric = params['symmetric']
         self.to_reshape = params['to_reshape']
         self.einsum_str = params['einsum_str']
@@ -57,7 +64,8 @@ class CompressorCovarianceUmat(BaseEstimator,TransformerMixin):
         self.dj = len(self.fj)
 
     def reshape_(self,X):
-        unwrapped_X = get_unlin_soap(X,self.soap_params,self.soap_params['global_species'])
+        unwrapped_X = get_unlin_soap(X,self.soap_params,
+                        self.soap_params['global_species'],dtype=self.dtype)
         return unwrapped_X
 
     def get_covariance_umat_full(self,unlinsoap):
@@ -65,43 +73,55 @@ class CompressorCovarianceUmat(BaseEstimator,TransformerMixin):
         Compute the covariance of the given unlinsoap and decomposes it 
         unlinsoap.shape = (Nsample,nspecies, nspecies, nmax, nmax, lmax+1)
         '''
-        Nsample,nspecies, nspecies, nmax, nmax, lmax1 =  unlinsoap.shape
+        Nsample = unlinsoap.shape[0]
+
+        if issparse(unlinsoap) is True:
+            m_soap = np.array(unlinsoap.mean(axis=0)).reshape((1,-1))
+            X = get_unlin_soap(m_soap,self.soap_params,
+                            self.soap_params['global_species'],dtype=self.dtype)
+        else:
+            X = unlinsoap.mean(axis=0)
+        
+        X = np.squeeze(X)
+
+        nspecies, nspecies, nmax, nmax, lmax1 =  X.shape
+        
         
         identity = lambda x: x 
         reshape = lambda x: x.transpose(0,1,3,2,4,5).reshape((-1,nspecies*nmax, nspecies*nmax,lmax1))
         if self.compression_type in ['species']:
-            cov = unlinsoap.mean(axis=(0,5)).trace(axis1=2, axis2=3)
+            cov = X.mean(axis=(4)).trace(axis1=2, axis2=3)
             self.einsum_str = 'ij,nm,ajmopl->ainopl'
             self.scale_features_str = 'j,m,ajmopl->ajmopl'
             self.modify = identity
         elif self.compression_type in ['angular+species']:
-            X_c = unlinsoap.transpose(5,0,1,2,3,4)
-            cov = X_c.mean(axis=1).trace(axis1=3, axis2=4)
+            X_c = X.transpose(4,0,1,2,3)
+            cov = X_c.trace(axis1=3, axis2=4)
             self.einsum_str = 'ij,nm,ajmopl->ainopl'
             self.scale_features_str = 'l,j,m,ajmopl->ajmopl'
             self.modify = identity
         elif self.compression_type in ['radial']:
-            cov = unlinsoap.mean(axis=(0,5)).trace(axis1=0, axis2=1)
+            cov = X.mean(axis=(5)).trace(axis1=0, axis2=1)
             self.einsum_str = 'ij,nm,aopjml->aopinl'
             self.scale_features_str = 'j,m,aopjml->aopjml'
             self.modify = identity
         elif self.compression_type in ['angular+radial']:
-            X_c = unlinsoap.transpose(5,0,1,2,3,4)
-            cov = X_c.mean(axis=1).trace(axis1=1, axis2=2)
+            X_c = X.transpose(4,0,1,2,3)
+            cov = X_c.trace(axis1=1, axis2=2)
             self.einsum_str = 'ij,nm,aopjml->aopinl'
             self.scale_features_str = 'l,j,m,aopjml->aopjml'
             self.modify = identity
         elif self.compression_type in ['species*radial']:
-            X_c = unlinsoap.transpose(0,1,3,2,4,5).reshape((Nsample,nspecies*nmax, nspecies*nmax,lmax1))
-            cov = X_c.mean(axis=(0,3))
+            X_c = X.transpose(0,2,1,3,4).reshape((nspecies*nmax, nspecies*nmax,lmax1))
+            cov = X_c.mean(axis=(2))
             
             self.einsum_str = 'ij,nm,ajml->ainl'
             self.scale_features_str = 'j,m,ajml->ajml'
             # there is a contraction here so we need to reshape the input before transforming it
             self.modify = reshape
         elif self.compression_type in ['angular+species*radial']:
-            X_c = unlinsoap.transpose(5,0,1,3,2,4).reshape((lmax1,Nsample,nspecies*nmax, nspecies*nmax))
-            cov = X_c.mean(axis=1)
+            X_c = X.transpose(4,0,2,1,3).reshape((lmax1,nspecies*nmax, nspecies*nmax))
+            cov = X_c
             self.einsum_str = 'ij,nm,ajml->ainl'
             self.scale_features_str = 'l,j,m,ajml->ajml'
             self.modify = reshape
@@ -120,8 +140,9 @@ class CompressorCovarianceUmat(BaseEstimator,TransformerMixin):
             return eve.transpose((0,2,1)),eva
         
     def fit(self,X):
-        
-        if self.to_reshape:
+        if issparse(X) is True:
+            X_c = X
+        elif self.to_reshape is True:
             X_c = self.reshape_(X)
         else:
             X_c = X
@@ -130,24 +151,51 @@ class CompressorCovarianceUmat(BaseEstimator,TransformerMixin):
         
         return self
     
-    def project_on_u_mat(self,X,compression_only=False):
-        if self.to_reshape:
-            X_c = self.modify(self.reshape_(X))
-        else:
-            X_c = self.modify(X)
+    def project_on_u_mat(self,X,compression_only=False,stride_size=100):
+        N,M = X.shape
 
-        if 'angular' not in self.compression_type:
-            u_mat = self.u_mat_full[:self.dj,:]
-        elif 'angular' in self.compression_type:
-            u_mat = self.u_mat_full[:,:self.dj,:]
+        if issparse(X) is False:
+            bounds = [(0,N)] 
+        elif issparse(X) is True:
+            Nstride = N // stride_size
+            bounds = [[ii*stride_size,(ii+1)*stride_size] for ii in range(Nstride)]
+            bounds[-1][-1] += N % stride_size
+
+        X_compressed = []
+        
+        for st,nd in tqdm_cs(bounds):
             
-        if compression_only is False:
-            return get_compressed_soap(X_c,u_mat,self.einsum_str,symmetric=False,
-                                lin_out=False,normalize=self.normalize)
-        elif compression_only is True:
-            return get_compressed_soap(X_c,u_mat,self.einsum_str,symmetric=True,
-                                lin_out=True,normalize=self.normalize)
+            if issparse(X) is True:
+                X_ = np.asarray(X[st:nd].toarray(),dtype=self.dtype)
+            else:
+                X_ = np.asarray(X[st:nd],dtype=self.dtype)
 
+            if self.to_reshape:
+                X_c = self.modify(self.reshape_(X_))
+            else:
+                X_c = self.modify(X_)
+
+            if 'angular' not in self.compression_type:
+                u_mat = np.asarray(self.u_mat_full[:self.dj,:],dtype=self.dtype)
+            elif 'angular' in self.compression_type:
+                u_mat = np.asarray(self.u_mat_full[:,:self.dj,:],dtype=self.dtype)
+                
+            if compression_only is False:
+                X_compressed.append(get_compressed_soap(X_c,u_mat,self.einsum_str,symmetric=False,
+                                    lin_out=False,normalize=self.normalize))
+            elif compression_only is True:
+                X_compressed.append(get_compressed_soap(X_c,u_mat,self.einsum_str,symmetric=True,
+                                    lin_out=True,normalize=self.normalize))
+
+        if issparse(X) is False:
+            return X_compressed[0]
+        elif issparse(X) is True:
+            shape = list(X_compressed[0].shape)
+            shape[0] = -1 
+            aa = np.asarray(X_compressed,dtype=self.dtype).reshape(shape)
+
+            return aa
+            
     def scale_features(self,projected_unlinsoap):
         
         args = [self.scale_features_str]
@@ -307,50 +355,11 @@ def get_compressed_soap(unlinsoap,u_mat,einsum_str,symmetric=False,lin_out=True,
         return p.reshape((Nsoap,-1))
     else:
         return p
-   
-def symmetrize(p):
-    Nsoap,Ncomp,_,nn = p.shape
-    p2 = np.empty((Nsoap,Ncomp*(Ncomp + 1)/2, nn))
-    stride = [0] + list(range(Ncomp,0,-1))
-    stride = np.cumsum(stride)
-    for i,st,nd in zip(range(Ncomp-1),stride[:-1],stride[1:]):
-        p2[:,st] = p[:,i, i]
-        p2[:,st+1:nd] = p[:,i, (i+1):Ncomp]*np.sqrt(2.0)
-    p2[:,-1] = p[:,Ncomp-1,Ncomp-1]
-    return p2
 
-def get_unlin_soap(rawsoap,params,global_species):
-    """
-    Take soap vector from QUIP and undo the vectorization 
-    (nspecies is symmetric and sometimes nmax so some terms don't exist in the soap vector of QUIP)
-    """
-    nmax = params['nmax']
-    lmax = params['lmax']
-    #nn = nmax**2*(lmax + 1)
-    nspecies = len(global_species)
-    Nsoap = rawsoap.shape[0]
-    #p = np.zeros((nspecies, nspecies, nn))
 
-    #translate the fingerprints from QUIP
-    counter = 0
-    p = np.zeros((Nsoap,nspecies, nspecies, nmax, nmax, lmax + 1))
-    rs_index = [(i%nmax, (i - i%nmax)/nmax) for i in xrange(nmax*nspecies)]
-    for i in xrange(nmax*nspecies):
-        for j in xrange(i + 1):
-            if i != j: mult = np.sqrt(0.5)
-            else: mult = 1.0
-            n1, s1 = rs_index[i]
-            n2, s2 = rs_index[j]
-            p[:,s1, s2, n1, n2, :] = rawsoap[:,counter:counter+(lmax + 1)]*mult
-            if s1 == s2: p[:,s1, s2, n2, n1, :] = rawsoap[:,counter:counter+(lmax + 1)]*mult
-            counter += (lmax + 1)
-
-    for s1 in xrange(nspecies):
-        for s2 in xrange(s1):
-            p[:,s2, s1] = p[:,s1, s2].transpose((0, 2, 1, 3))
     
-    return p
 
+    
 
 
 

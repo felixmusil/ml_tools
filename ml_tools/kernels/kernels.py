@@ -4,7 +4,7 @@ from ..base import np,sp
 from ..math_utils import power,average_kernel
 from scipy.sparse import issparse
 
- 
+  
 class KernelPower(KernelBase):
     def __init__(self,zeta):
         self.zeta = zeta
@@ -22,8 +22,15 @@ class KernelPower(KernelBase):
             return self(X,Y=X_train)
         
     def __call__(self, X, Y=None, eval_gradient=False):
+        if len(X.shape) > 2:
+            Nenv = X.shape[0]
+            X = X.reshape((Nenv,-1))
         if Y is None:
             Y = X
+        if len(Y.shape) > 2:
+            Nenv = Y.shape[0]
+            Y = Y.reshape((Nenv,-1))
+
         if issparse(X) is False:
             return power(np.dot(X,Y.T),self.zeta)
         if issparse(X) is True:
