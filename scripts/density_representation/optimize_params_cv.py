@@ -1,6 +1,6 @@
 import argparse
-import time
-  
+import time,sys
+   
 import sys,os
 sys.path.insert(0,'/home/musil/git/ml_tools/')
 
@@ -10,8 +10,8 @@ from ml_tools.base import np,sp
 
 from ml_tools.utils import load_data,tqdm_cs,get_score,dump_json,load_json,load_pck
 from ml_tools.models import KRRFastCV
-from ml_tools.kernels import KernelPower
-from ml_tools.split import EnvironmentalKFold
+from ml_tools.kernels import KernelPower,KernelSum
+from ml_tools.split import EnvironmentalKFold,KFold
 from ml_tools.compressor import CompressorCovarianceUmat
  
 
@@ -125,7 +125,8 @@ def soap_cov_loss(x_opt,rawsoaps,y,cv,jitter,disable_pbar=True,leave=False,compr
     
     return mse
 
-def sor_fj_loss(x_opt,data,y,cv,jitter,disable_pbar=True,leave=False,kernel=None,compressor=None,opt_reg=True,return_score=False):
+def sor_fj_loss(x_opt,data,y,cv,jitter,disable_pbar=True,leave=False,kernel=None,
+                compressor=None,strides=None,active_strides=None,opt_reg=True,return_score=False):
     if opt_reg is True:
         Lambda = x_opt[0]
         fj = x_opt[1:]
@@ -141,15 +142,19 @@ def sor_fj_loss(x_opt,data,y,cv,jitter,disable_pbar=True,leave=False,kernel=None
     X_active = compressor.scale_features(unlinsoaps_active)
     # X = compressor.transform(unlinsoaps)
     # X_active = compressor.transform(unlinsoaps_active)
-    kMM = kernel(X_active,X_active)
-    kMN = kernel(X_active,X)
+    if strides is not None and active_strides is not None:
+        X_active = dict(strides=active_strides,feature_matrix=X[active_ids])
+        X = dict(strides=strides,feature_matrix=X)
+    
+    kMM = kernel.transform(X_active,X_train=X_active)
+    kMN = kernel.transform(X_active,X_train=X)
 
     Mactive,Nsample = kMN.shape
     
     mse = 0
     y_p = np.zeros((Nsample,))
     scores = []
-    for train,test in tqdm_cs(cv.split(X),total=cv.n_splits,disable=disable_pbar,leave=False):
+    for train,test in tqdm_cs(cv.split(y.reshape((-1,1))),total=cv.n_splits,disable=disable_pbar,leave=False):
         # prepare SoR kernel
         kMN_train =  kMN[:,train]
         kernel_train = (kMM + np.dot(kMN_train,kMN_train.T)/Lambda**2) + np.diag(np.ones(Mactive))*jitter
@@ -237,11 +242,10 @@ if __name__ == '__main__':
     rawsoaps_fn = os.path.abspath(in_args.X)
     print('Load data from: {}'.format(rawsoaps_fn))
     params,X = load_data(rawsoaps_fn,mmap_mode=None) 
-    if 'fps_ids' in params:
-        fps_ids = params['fps_ids']
+    
     soap_params = params['soap_params']
     kernel_params = params['kernel_params']
-    env_mapping = params['env_mapping']
+    
     out_fn = in_args.out
     loss_type = in_args.loss 
     
@@ -257,21 +261,47 @@ if __name__ == '__main__':
     else:
         compressor_fn = None
     #############################################
+    if 'env_mapping' in params:
+        env_mapping = params['env_mapping']
+        cv = EnvironmentalKFold(n_splits=Nfold,random_state=10,shuffle=True,mapping=env_mapping)
+    else:
+        cv = KFold(n_splits=Nfold,random_state=10,shuffle=True)
     
-    cv = EnvironmentalKFold(n_splits=Nfold,random_state=10,shuffle=True,mapping=env_mapping)
-    kernel = KernelPower(**kernel_params)
+    if 'strides' in params:
+        kernel = KernelSum(KernelPower(**kernel_params))
+        strides = params['strides']
+        has_sum_kernel = True
+        if 'fps_ids' in params:
+            fps_ids_frames = params['fps_ids']
+
+            ids = [list(range(st,nd)) for st,nd in  zip(strides[:-1],strides[1:])]
+            active_ids,active_strides = [],[0]
+            for idx in fps_ids_frames[:Nfps]:
+                active_ids.extend(ids[idx])
+                nn = active_strides[-1]+len(ids[idx])
+                active_strides.append(nn)
+
+    else:
+        kernel = KernelPower(**kernel_params)
+        has_sum_kernel = False
+        if 'fps_ids' in params:
+            active_ids = params['fps_ids'][:Nfps]
+            
+
     print('Start: {}'.format(time.ctime()))
+    sys.stdout.flush()
     if loss_type == 'sor_loss':
         loss_func = sor_loss
-        X_active = X[fps_ids[:Nfps]]
-        kMM = kernel(X_active,X_active)
-        kMN = kernel(X_active,X)
+        if has_sum_kernel is False:
+            X_active = X[active_ids]
+        elif has_sum_kernel is True:
+            X_active = dict(strides=active_strides,feature_matrix=X[active_ids])
+            X = dict(strides=strides,feature_matrix=X)
+        kMM = kernel.transform(X_active,X_train=X_active)
+        kMN = kernel.transform(X_active,X_train=X)
         args = ((kMM,kMN),y,cv,jitter,False,False)
-        if len(x_init) != 1:
-            raise ValueError('with {} loss function, Xinit should have 1 argument'.format(loss_type))
     elif loss_type == 'soap_cov_loss':
         loss_func = soap_cov_loss
-        active_ids = fps_ids[:Nfps]
         args = (X,y,cv,jitter,False,False,compressor,active_ids)
     elif loss_type == 'sor_fj_loss':
         loss_func = sor_fj_loss
@@ -280,9 +310,17 @@ if __name__ == '__main__':
             rawsoaps_active = X[1]
         else:
             rawsoaps = X
-            rawsoaps_active = X[fps_ids[:Nfps]]
-        data = (compressor.project_on_u_mat(rawsoaps),compressor.project_on_u_mat(rawsoaps_active))
-        args = (data,y,cv,jitter,False,False,kernel,compressor)
+            rawsoaps_active = X[active_ids]
+
+        if len(rawsoaps.shape) > 2:
+            data = (rawsoaps,rawsoaps_active)
+        else:
+            data = (compressor.project_on_u_mat(rawsoaps),compressor.project_on_u_mat(rawsoaps_active))
+
+        if has_sum_kernel is False:
+            args = (data,y,cv,jitter,False,False,kernel,compressor)
+        elif has_sum_kernel is True:
+            args = (data,y,cv,jitter,False,False,kernel,compressor,strides,active_strides)
     else:
         raise ValueError('loss function: {}, does not exist.'.format(loss_type))
 
