@@ -102,7 +102,7 @@ class KernelSparseSoR(KernelBase):
     def fit(self,X):   
         return self
     def get_params(self,deep=True):
-        params = dict(kernel=self.kernel,X_pseudo=self.X_pseudo
+        params = dict(kernel=self.kernel,X_pseudo=self.X_pseudo,
                     Lambda=self.Lambda)
         return params
     def set_params(self,**params):
