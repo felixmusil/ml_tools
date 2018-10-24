@@ -86,7 +86,6 @@ class CompressorCovarianceUmat(BaseEstimator,TransformerMixin):
 
         nspecies, nspecies, nmax, nmax, lmax1 =  X.shape
         
-        
         identity = lambda x: x 
         reshape = lambda x: x.transpose(0,1,3,2,4,5).reshape((-1,nspecies*nmax, nspecies*nmax,lmax1))
         if self.compression_type in ['species']:
@@ -101,7 +100,7 @@ class CompressorCovarianceUmat(BaseEstimator,TransformerMixin):
             self.scale_features_str = 'l,j,m,ajmopl->ajmopl'
             self.modify = identity
         elif self.compression_type in ['radial']:
-            cov = X.mean(axis=(5)).trace(axis1=0, axis2=1)
+            cov = X.mean(axis=(4)).trace(axis1=0, axis2=1)
             self.einsum_str = 'ij,nm,aopjml->aopinl'
             self.scale_features_str = 'j,m,aopjml->aopjml'
             self.modify = identity
