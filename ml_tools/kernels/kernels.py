@@ -2,6 +2,7 @@
 from ..base import KernelBase
 from ..base import np,sp
 from ..math_utils import power,average_kernel
+#from ..math_utils.basic import power,average_kernel
 from scipy.sparse import issparse
 
    
@@ -77,7 +78,7 @@ class KernelSum(KernelBase):
         else:
             Yfeat,Ystrides = None,Xstrides
             is_square = True
-
+ 
         envKernel = self.kernel(Xfeat,Yfeat)
         
         K = average_kernel(envKernel,Xstrides,Ystrides,is_square)

@@ -78,38 +78,33 @@ def average_kernel(envKernel,Xstrides,Ystrides,is_square):
 @njit([void(float64[:,:], float64[:,:],int32[:]),
         void(float32[:,:], float32[:,:],int32[:])],parallel=True)
 def get_average_square(kernel,env_kernel,ids_n):
-    Nenv = ids_n.shape[0]-1
-    ncounts = zeros(Nenv)
+    Nenv = ids_n.shape[0]-1    
     for it in prange(Nenv):
         ist,ind = ids_n[it],ids_n[it+1]
-        for ii in prange(ist,ind):
-            for jt in prange(Nenv):
-                # computes only lower triangular
-                if it < jt: continue
-                jst,jnd = ids_n[jt],ids_n[jt+1]
-                for jj in range(jst,jnd):
-                    kernel[it,jt] += env_kernel[ii,jj]
-                ncounts[jt] = (ind-ist)*(jnd-jst)
-        for jt in range(Nenv):
+        for jt in prange(Nenv):
             if it < jt: continue
-            kernel[it,jt] /= ncounts[jt]
+            jst,jnd = ids_n[jt],ids_n[jt+1]
+            for ii in prange(ist,ind):
+                # computes only lower triangular
+                for jj in prange(jst,jnd):
+                    kernel[it,jt] += env_kernel[ii,jj]
+            kernel[it,jt] /= (ind-ist)*(jnd-jst)
+        
 
 @njit([void(float64[:,:], float64[:,:],int32[:],int32[:]),
         void(float32[:,:], float32[:,:],int32[:],int32[:])],parallel=True)
 def get_average_rectangular(kernel,env_kernel,ids_n,ids_m):
     Nenv = ids_n.shape[0]-1
     Menv = ids_m.shape[0]-1
-    ncounts = zeros(Menv)
     for it in prange(Nenv):
         ist,ind = ids_n[it],ids_n[it+1]
-        for ii in prange(ist,ind):
-            for jt in prange(Menv):
-                jst,jnd = ids_m[jt],ids_m[jt+1]
-                for jj in range(jst,jnd):
-                    kernel[it,jt] += env_kernel[ii,jj]
-                ncounts[jt] = (ind-ist)*(jnd-jst)
         for jt in prange(Menv):
-            kernel[it,jt] /= ncounts[jt]
+            jst,jnd = ids_m[jt],ids_m[jt+1]
+            for ii in prange(ist,ind):
+                # computes only lower triangular
+                for jj in prange(jst,jnd):
+                    kernel[it,jt] += env_kernel[ii,jj]
+            kernel[it,jt] /= (ind-ist)*(jnd-jst)
 
 
 def grad_average_kernel(ans, envKernel,Xstrides,Ystrides,is_square):
