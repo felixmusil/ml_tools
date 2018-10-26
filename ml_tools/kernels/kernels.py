@@ -2,6 +2,7 @@
 from ..base import KernelBase
 from ..base import np,sp
 from ..math_utils import power,average_kernel
+from ..utils import tqdm_cs
 #from ..math_utils.basic import power,average_kernel
 from scipy.sparse import issparse
 
@@ -58,17 +59,21 @@ class KernelPower(KernelBase):
 
 
 class KernelSum(KernelBase):
-    def __init__(self,kernel):
+    def __init__(self,kernel,chunk_shape=None,disable_pbar=False):
         self.kernel = kernel
-        
+        self.chunk_shape = chunk_shape
+        self.disable_pbar = disable_pbar
     def fit(self,X):   
         return self
     def get_params(self,deep=True):
-        params = dict(kernel=self.kernel)
+        params = dict(kernel=self.kernel,disable_pbar=self.disable_pbar,
+                    chunk_shape=self.chunk_shape)
         return params
     def set_params(self,**params):
         self.kernel = params['kernel']
-        
+        self.chunk_shape = params['chunk_shape']
+        self.disable_pbar = params['disable_pbar']
+
     def transform(self,X,X_train=None):
         Xfeat,Xstrides = X['feature_matrix'], X['strides']
         
@@ -76,14 +81,73 @@ class KernelSum(KernelBase):
             Yfeat,Ystrides = X_train['feature_matrix'], X_train['strides']
             is_square = False
         else:
-            Yfeat,Ystrides = None,Xstrides
+            Yfeat,Ystrides = Xfeat,Xstrides
             is_square = True
  
-        envKernel = self.kernel(Xfeat,Yfeat)
-        
-        K = average_kernel(envKernel,Xstrides,Ystrides,is_square)
-
+        if self.chunk_shape is None:
+            K = self.get_global_kernel(Xfeat,Xstrides,Yfeat,Ystrides,is_square)
+        else:
+            K = self.get_global_kernel_chunk(Xfeat,Xstrides,Yfeat,Ystrides,is_square)
         return K
+
+
+    def get_global_kernel(self,Xfeat,Xstrides,Yfeat,Ystrides,is_square):
+        envKernel = self.kernel(Xfeat,Yfeat)
+        K = average_kernel(envKernel,Xstrides,Ystrides,is_square)
+        return K
+
+    def get_global_kernel_chunk(self,Xfeat,Xstrides,Yfeat,Ystrides,is_square_kernel):
+        chunk_shape = self.chunk_shape
+        Nframe1,Nframe2 = len(Xstrides)-1,len(Ystrides)-1
+        kernel = np.ones((Nframe1,Nframe2))
+        if chunk_shape is None:
+            chunk_shape = [Nframe1,Nframe2]
+        if chunk_shape[0] > Nframe1:
+            chunk_shape[0] = Nframe1
+        if chunk_shape[1] > Nframe2:
+            chunk_shape[1] = Nframe2
+        if is_square_kernel is True:
+            chunk_shape[1] = chunk_shape[0]
+        
+        chunks1,chunks2 = get_chunck(Xstrides,chunk_shape[0]),get_chunck(Ystrides,chunk_shape[1])
+        total = 0
+        Nchunk_max, Mchunk_max = 0,0
+        for it,(fids1,ch1,ch1g) in enumerate(zip(*chunks1)):
+            #if Nchunk_max < ch1[-1].stop - ch1[0].start: Nchunk_max = ch1[-1].stop - ch1[0].start
+            for jt,(fids2,ch2,ch2g) in enumerate(zip(*chunks2)):
+                #if Mchunk_max < ch2[-1].stop - ch2[0].start: Mchunk_max = ch2[-1].stop - ch2[0].start
+                if is_square_kernel:
+                    if jt > it:
+                        total += 1
+                        continue 
+                else: total += 1
+                    
+        pbar = tqdm_cs(total=total,desc='kernel chunks',leave=False,disable=self.disable_pbar)
+        for it,(fids1,ch1,ch1g) in enumerate(zip(*chunks1)):
+            for jt,(fids2,ch2,ch2g) in enumerate(zip(*chunks2)):
+                is_square = False
+                if is_square_kernel:
+                    if jt > it: continue 
+                    
+                sl1,sl2 = slice(ch1g[0][0],ch1g[-1][1]), slice(ch2g[0][0],ch2g[-1][1])
+                ss1,ss2 = Xfeat[sl1],Yfeat[sl2]
+                
+                
+                Xstrides_local = [st for st,nd in ch1]+[ch1[-1][1]]
+                Ystrides_local = [st for st,nd in ch2]+[ch2[-1][1]]
+                envKernel = self.kernel(ss1,ss2)
+                
+                kernels_chunk = average_kernel(envKernel,Xstrides_local,
+                                            Ystrides_local,is_square=is_square)
+                #print kernels_chunk.shape
+                kernel[fids1,fids2] = kernels_chunk
+                if is_square_kernel:
+                    if get_overlap(fids1,fids2) == 0:
+                        kernel[fids2,fids1] = kernel[fids1,fids2].T
+                pbar.update()
+        pbar.close()
+        return kernel
+
 
     def pack(self):
         state = self.get_params()
@@ -134,3 +198,46 @@ class KernelSparseSoR(KernelBase):
     
     def loads(self,state):
         self.set_params(state)
+
+
+
+def get_chunck(strides,chunk_len):
+    N = len(strides)-1
+    Nchunk = N // chunk_len
+    
+    slices = [(st,nd) for st,nd in zip(strides[:-1],strides[1:])]
+    
+    if Nchunk == 1 and N % chunk_len == 0:
+        return [slice(0,N)],[slices],[slices]
+    
+    frame_ids = [slice(it*chunk_len,(it+1)*chunk_len) for it in range(Nchunk)]
+    if N % chunk_len != 0:
+        frame_ids.append(slice((Nchunk)*chunk_len,(N)))
+    
+    chuncks_global = [
+        [slices[ii] for ii in range(it*chunk_len,(it+1)*chunk_len)] 
+              for it in range(Nchunk)]
+    if N % chunk_len != 0:
+        chuncks_global.append([slices[ii] for ii in range((Nchunk)*chunk_len,(N))])
+    
+    chuncks = []
+    for it in range(Nchunk):
+        st_ref = slices[it*chunk_len][0]
+        aa = []
+        for ii in range(it*chunk_len,(it+1)*chunk_len):
+            st,nd = slices[ii][0]-st_ref,slices[ii][1]-st_ref
+            aa.append((st,nd))
+        chuncks.append(aa)
+    
+    if N % chunk_len != 0:
+        aa = []
+        st_ref = slices[Nchunk*chunk_len][0]
+        for ii in range((Nchunk)*chunk_len,N):
+            st,nd = slices[ii][0]-st_ref,slices[ii][1]-st_ref
+            aa.append((st,nd))
+        chuncks.append(aa)  
+    
+    return frame_ids,chuncks,chuncks_global
+
+def get_overlap(a, b):
+    return max(0, min(a.stop, b.stop) - max(a.start, b.start))
