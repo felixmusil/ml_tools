@@ -116,7 +116,7 @@ def grad_average_kernel(ans, envKernel,Xstrides,Ystrides,is_square):
         ids = np.zeros((N*M,6),np.int32)
         for ii,(ist,ind) in enumerate(zip(Xstrides[:-1],Xstrides[1:])):
             for jj,(jst,jnd) in enumerate(zip(Ystrides[:-1],Ystrides[1:])):
-                ids[ii*N+jj,:] = np.asarray([ii,ist,ind,jj,jst,jnd],np.int32)
+                ids[ii*M+jj,:] = np.asarray([ii,ist,ind,jj,jst,jnd],np.int32)
                 
         grad_average_kernel_helper(g_repeated,g,ids)
         return g_repeated

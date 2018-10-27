@@ -2,7 +2,7 @@
 from ..base import KernelBase
 from ..base import np,sp
 from ..math_utils import power,average_kernel
-from ..utils import tqdm_cs
+from ..utils import tqdm_cs,is_autograd_instance
 #from ..math_utils.basic import power,average_kernel
 from scipy.sparse import issparse
 
@@ -83,9 +83,12 @@ class KernelSum(KernelBase):
         else:
             Yfeat,Ystrides = Xfeat,Xstrides
             is_square = True
- 
+         
         if self.chunk_shape is None:
             K = self.get_global_kernel(Xfeat,Xstrides,Yfeat,Ystrides,is_square)
+        elif is_autograd_instance(Xfeat) is True or is_autograd_instance(Yfeat) is True:
+            # this function is autograd safe because it avoids 
+            K = self.get_global_kernel_chunk_autograd(Xfeat,Xstrides,Yfeat,Ystrides,is_square)
         else:
             K = self.get_global_kernel_chunk(Xfeat,Xstrides,Yfeat,Ystrides,is_square)
         return K
@@ -111,7 +114,6 @@ class KernelSum(KernelBase):
         
         chunks1,chunks2 = get_chunck(Xstrides,chunk_shape[0]),get_chunck(Ystrides,chunk_shape[1])
         total = 0
-        Nchunk_max, Mchunk_max = 0,0
         for it,(fids1,ch1,ch1g) in enumerate(zip(*chunks1)):
             #if Nchunk_max < ch1[-1].stop - ch1[0].start: Nchunk_max = ch1[-1].stop - ch1[0].start
             for jt,(fids2,ch2,ch2g) in enumerate(zip(*chunks2)):
@@ -123,6 +125,7 @@ class KernelSum(KernelBase):
                 else: total += 1
                     
         pbar = tqdm_cs(total=total,desc='kernel chunks',leave=False,disable=self.disable_pbar)
+        kk = []
         for it,(fids1,ch1,ch1g) in enumerate(zip(*chunks1)):
             for jt,(fids2,ch2,ch2g) in enumerate(zip(*chunks2)):
                 is_square = False
@@ -131,8 +134,7 @@ class KernelSum(KernelBase):
                     
                 sl1,sl2 = slice(ch1g[0][0],ch1g[-1][1]), slice(ch2g[0][0],ch2g[-1][1])
                 ss1,ss2 = Xfeat[sl1],Yfeat[sl2]
-                
-                
+                                
                 Xstrides_local = [st for st,nd in ch1]+[ch1[-1][1]]
                 Ystrides_local = [st for st,nd in ch2]+[ch2[-1][1]]
                 envKernel = self.kernel(ss1,ss2)
@@ -147,6 +149,64 @@ class KernelSum(KernelBase):
                 pbar.update()
         pbar.close()
         return kernel
+    
+    def get_global_kernel_chunk_autograd(self,Xfeat,Xstrides,Yfeat,Ystrides,is_square_kernel):
+        chunk_shape = self.chunk_shape
+        Nframe1,Nframe2 = len(Xstrides)-1,len(Ystrides)-1
+        kernel = np.ones((Nframe1,Nframe2))
+        if chunk_shape is None:
+            chunk_shape = [Nframe1,Nframe2]
+        if chunk_shape[0] > Nframe1:
+            chunk_shape[0] = Nframe1
+        if chunk_shape[1] > Nframe2:
+            chunk_shape[1] = Nframe2
+        if is_square_kernel is True:
+            chunk_shape[1] = chunk_shape[0]
+        
+        chunks1,chunks2 = get_chunck(Xstrides,chunk_shape[0]),get_chunck(Ystrides,chunk_shape[1])
+        Nchunk, Mchunk = len(chunks1[0]),len(chunks2[0])
+        total = 0
+        for it,(fids1,ch1,ch1g) in enumerate(zip(*chunks1)):
+            #if Nchunk_max < ch1[-1].stop - ch1[0].start: Nchunk_max = ch1[-1].stop - ch1[0].start
+            for jt,(fids2,ch2,ch2g) in enumerate(zip(*chunks2)):
+                #if Mchunk_max < ch2[-1].stop - ch2[0].start: Mchunk_max = ch2[-1].stop - ch2[0].start
+                if is_square_kernel:
+                    if jt > it:
+                        total += 1
+                        continue 
+                else: total += 1
+                    
+        pbar = tqdm_cs(total=total,desc='kernel chunks',leave=False,disable=self.disable_pbar)
+        
+        kk = {it:{jt:{} for jt in range(Mchunk)} for it in range(Nchunk)}
+        for it,(fids1,ch1,ch1g) in enumerate(zip(*chunks1)):
+            for jt,(fids2,ch2,ch2g) in enumerate(zip(*chunks2)):
+                is_square = False
+                if is_square_kernel is True:
+                    if jt > it: continue 
+                    
+                sl1,sl2 = slice(ch1g[0][0],ch1g[-1][1]), slice(ch2g[0][0],ch2g[-1][1])
+                ss1,ss2 = Xfeat[sl1],Yfeat[sl2]
+                                
+                Xstrides_local = [st for st,nd in ch1]+[ch1[-1][1]]
+                Ystrides_local = [st for st,nd in ch2]+[ch2[-1][1]]
+                envKernel = self.kernel(ss1,ss2)
+                
+                kernels_chunk = average_kernel(envKernel,Xstrides_local,
+                                            Ystrides_local,is_square=is_square)
+                
+                kk[it][jt] = kernels_chunk                
+                if is_square_kernel is True and get_overlap(fids1,fids2) == 0:
+                    kk[jt][it] = kernels_chunk.T  
+                pbar.update()
+        
+        kki = []
+        for it in range(Nchunk):
+            kki.append(np.concatenate(kk[it].values(),axis=1))
+        kernel = np.concatenate(kki,axis=0)
+
+        pbar.close()
+        return kernel
 
 
     def pack(self):
@@ -157,6 +217,7 @@ class KernelSum(KernelBase):
     
     def loads(self,state):
         self.set_params(state)
+
 
 class KernelSparseSoR(KernelBase):
     def __init__(self,kernel,X_pseudo,Lambda):

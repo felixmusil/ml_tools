@@ -94,5 +94,9 @@ def ase2qp(aseatoms):
     pbc = aseatoms.get_pbc()
     return qpAtoms(numbers=numbers,cell=cell,positions=positions,pbc=pbc)
 
-
+def is_autograd_instance(array):
+    if 'ArrayBox' in str(type(array)):
+        return True
+    else:
+        return False
     
