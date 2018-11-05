@@ -14,7 +14,7 @@ def is_notebook():
             return False  # Other type (?)
     except NameError:
         return False      # Probably standard Python interpreter
-
+ 
 if is_notebook():
     from tqdm import tqdm_notebook as tqdm_cs
     ascii = False

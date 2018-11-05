@@ -6,7 +6,7 @@ from time import time
 from ..math_utils import symmetrize,get_unlin_soap
   
 class CompressorCovarianceUmat(BaseEstimator,TransformerMixin):
-    def __init__(self,soap_params=None,compression_type='species',dj=5,fj=None,
+    def __init__(self,soap_params=None,compression_type='species',dj=5,fj=None,stride_size=None,
                     symmetric=False,to_reshape=True,normalize=True,dtype='float64'):
         self.dj = dj
         self.compression_type = compression_type
@@ -16,11 +16,12 @@ class CompressorCovarianceUmat(BaseEstimator,TransformerMixin):
         self.to_reshape = to_reshape
         self.normalize = normalize
         self.dtype = dtype
+        self.stride_size = stride_size
 
     def get_params(self,deep=True):
         params = dict(dj=self.dj,compression_type=self.compression_type,
                       soap_params=self.soap_params,fj=self.fj,
-                      dtype=self.dtype,
+                      dtype=self.dtype,stride_size=self.stride_size,
                       scale_features_str=self.scale_features_str,
                       symmetric=self.symmetric,to_reshape=self.to_reshape,
                       einsum_str=self.einsum_str,normalize=self.normalize)
@@ -37,6 +38,7 @@ class CompressorCovarianceUmat(BaseEstimator,TransformerMixin):
         self.einsum_str = params['einsum_str']
         self.normalize = params['normalize']
         self.scale_features_str = params['scale_features_str']
+        self.stride_size = params['stride_size']
 
         nspecies = len(self.soap_params['global_species'])
         lmax1 = self.soap_params['lmax'] + 1
@@ -124,7 +126,7 @@ class CompressorCovarianceUmat(BaseEstimator,TransformerMixin):
             self.einsum_str = 'ij,nm,ajml->ainl'
             self.scale_features_str = 'l,j,m,ajml->ajml'
             self.modify = reshape
-
+ 
         # get sorted eigen values and vectors
         eva,eve = np.linalg.eigh(cov)
         # first dim is angular so the flip has to be shifted
@@ -142,27 +144,27 @@ class CompressorCovarianceUmat(BaseEstimator,TransformerMixin):
         if issparse(X) is True:
             X_c = X
         elif self.to_reshape is True:
-            X_c = self.reshape_(X)
+            X_c = self.reshape_(np.asarray(X,dtype=self.dtype))
         else:
-            X_c = X
+            X_c = np.asarray(X,dtype=self.dtype)
         
         self.u_mat_full, self.eig = self.get_covariance_umat_full(X_c)
         
         return self
     
-    def project_on_u_mat(self,X,compression_only=False,stride_size=100):
+    def project_on_u_mat(self,X,compression_only=False,stride_size=None,fj_mult=False):
         N,M = X.shape
 
-        if issparse(X) is False:
+        if issparse(X) is False and stride_size is None:
             bounds = [(0,N)] 
-        elif issparse(X) is True:
+        elif issparse(X) is True or stride_size is not None:
             Nstride = N // stride_size
             bounds = [[ii*stride_size,(ii+1)*stride_size] for ii in range(Nstride)]
             bounds[-1][-1] += N % stride_size
 
         X_compressed = []
         
-        for st,nd in tqdm_cs(bounds):
+        for st,nd in tqdm_cs(bounds,desc='Umat Proj',leave=False):
             
             if issparse(X) is True:
                 X_ = np.asarray(X[st:nd].toarray(),dtype=self.dtype)
@@ -174,10 +176,23 @@ class CompressorCovarianceUmat(BaseEstimator,TransformerMixin):
             else:
                 X_c = self.modify(X_)
 
-            if 'angular' not in self.compression_type:
-                u_mat = np.asarray(self.u_mat_full[:self.dj,:],dtype=self.dtype)
-            elif 'angular' in self.compression_type:
-                u_mat = np.asarray(self.u_mat_full[:,:self.dj,:],dtype=self.dtype)
+            if fj_mult is True:
+                if self.fj is not None and 'angular' not in self.compression_type:
+                    #u_mat = np.dot(self.fj,self.u_mat_full[:self.dj,:])
+                    u_mat = np.einsum("ja,j->ja",self.u_mat_full[:self.dj,:],self.fj,optimize='optimal')
+                elif self.fj is not None and 'angular' in self.compression_type:
+                    #u_mat = np.dot(self.fj,self.u_mat_full[:self.dj,:])
+                    u_mat = np.einsum("lnm,n->lnm",self.u_mat_full[:,:self.dj,:],self.fj,optimize='optimal')
+                    u_mat = np.einsum("lnm,l->lnm",u_mat,self.fl,optimize='optimal')
+                elif self.fj is None and 'angular' not in self.compression_type:
+                    u_mat = self.u_mat_full[:self.dj,:]
+                elif self.fj is None and 'angular' in self.compression_type:
+                    u_mat = self.u_mat_full[:,:self.dj,:]
+            else:
+                if 'angular' not in self.compression_type:
+                    u_mat = np.asarray(self.u_mat_full[:self.dj,:],dtype=self.dtype)
+                elif 'angular' in self.compression_type:
+                    u_mat = np.asarray(self.u_mat_full[:,:self.dj,:],dtype=self.dtype)
                 
             if compression_only is False:
                 X_compressed.append(get_compressed_soap(X_c,u_mat,self.einsum_str,symmetric=False,
@@ -186,67 +201,66 @@ class CompressorCovarianceUmat(BaseEstimator,TransformerMixin):
                 X_compressed.append(get_compressed_soap(X_c,u_mat,self.einsum_str,symmetric=True,
                                     lin_out=True,normalize=self.normalize))
 
-        if issparse(X) is False:
+        if issparse(X) is False and stride_size is None:
             return X_compressed[0]
-        elif issparse(X) is True:
-            shape = list(X_compressed[0].shape)
-            shape[0] = -1 
-            aa = np.asarray(X_compressed,dtype=self.dtype).reshape(shape)
-
+        elif issparse(X) is True or stride_size is not None:
+            aa = np.asarray(np.concatenate(X_compressed,axis=0),dtype=self.dtype)
             return aa
             
-    def scale_features(self,projected_unlinsoap):
+    def scale_features(self,projected_unlinsoap,stride_size=None):
+        N = projected_unlinsoap.shape[0]
+
+        if stride_size is None:
+            bounds = [(0,N)] 
+        elif stride_size is not None:
+            Nstride = N // stride_size
+            bounds = [[ii*stride_size,(ii+1)*stride_size] for ii in range(Nstride)]
+            bounds[-1][-1] += N % stride_size
+
+        X_compressed = []
         
-        args = [self.scale_features_str]
-        if 'angular' not in self.compression_type:
-            args += [self.fj,self.fj,projected_unlinsoap]
-        elif 'angular' in self.compression_type:
-            args += [self.fl,self.fj,self.fj,projected_unlinsoap]
-        
-        kwargs = dict(optimize='optimal')
-        p = np.einsum(*args,**kwargs)
+        for st,nd in tqdm_cs(bounds,desc='Feature Scaling',leave=False):
+            args = [self.scale_features_str]
+            X_c = projected_unlinsoap[st:nd]
+            if 'angular' not in self.compression_type:
+                args += [self.fj,self.fj,X_c]
+            elif 'angular' in self.compression_type:
+                args += [self.fl,self.fj,self.fj,X_c]
+            
+            kwargs = dict(optimize=False)
+            p = np.einsum(*args,**kwargs)
+            if len(p.shape) == 6:
+                Nsoap,nspecies, nspecies, nmax, nmax, lmax1 = p.shape
+                shape1 = (Nsoap,1,1,1,1,1)
+                axis = (1,2,3,4,5)
+                trans = True
+            elif len(p.shape) == 4:
+                Nsoap,Ncomp , Ncomp , lmax1 = p.shape
+                shape1 = (Nsoap,1,1,1)
+                axis = (1,2,3)
+                trans = False
 
-        if len(p.shape) == 6:
-            Nsoap,nspecies, nspecies, nmax, nmax, lmax1 = p.shape
-            shape1 = (Nsoap,1,1,1,1,1)
-            trans = True
-        elif len(p.shape) == 4:
-            Nsoap,Ncomp , Ncomp , lmax1 = p.shape
-            shape1 = (Nsoap,1,1,1)
-            trans = False
+            if self.symmetric is True:
+                p = np.transpose(p,axes=(0,1,3,2,4,5)).reshape(Nsoap,nspecies*nmax, nspecies*nmax, lmax1) if trans is True else p
+                p = symmetrize(p)
+                shape1 = (Nsoap,1,1)
 
-        if self.symmetric is True:
-            p = np.transpose(p,axes=(0,1,3,2,4,5)).reshape(Nsoap,nspecies*nmax, nspecies*nmax, lmax1) if trans is True else p
-            p = symmetrize(p)
-            shape1 = (Nsoap,1,1)
+            if self.normalize is True:
+                pn = np.sqrt(np.sum(np.square(p),axis=axis)).reshape(shape1)
+                p /=  pn
 
-        if self.normalize is True:
-            pn = np.linalg.norm(p.reshape((Nsoap,-1)),axis=1).reshape(shape1)
-            p /=  pn
+            X_compressed.append(p.reshape((Nsoap,-1)))
 
-        return p.reshape((Nsoap,-1))
+        if stride_size is None:
+            return X_compressed[0]
+        elif stride_size is not None:
+            aa = np.concatenate(X_compressed,axis=0)
+            return aa
         
     def transform(self,X):
-        if self.to_reshape:
-            X_c = self.modify(self.reshape_(X))
-        else:
-            X_c = self.modify(X)
-        
-        if self.fj is not None and 'angular' not in self.compression_type:
-            #u_mat = np.dot(self.fj,self.u_mat_full[:self.dj,:])
-            u_mat = np.einsum("ja,j->ja",self.u_mat_full[:self.dj,:],self.fj,optimize='optimal')
-        elif self.fj is not None and 'angular' in self.compression_type:
-            #u_mat = np.dot(self.fj,self.u_mat_full[:self.dj,:])
-            u_mat = np.einsum("lnm,n->lnm",self.u_mat_full[:,:self.dj,:],self.fj,optimize='optimal')
-            u_mat = np.einsum("lnm,l->lnm",u_mat,self.fl,optimize='optimal')
-        elif self.fj is None and 'angular' not in self.compression_type:
-            u_mat = self.u_mat_full[:self.dj,:]
-        elif self.fj is None and 'angular' in self.compression_type:
-            u_mat = self.u_mat_full[:,:self.dj,:]
-        
-        
-        return get_compressed_soap(X_c,u_mat,self.einsum_str,symmetric=self.symmetric,
-                                    normalize=self.normalize)
+        X_proj = self.project_on_u_mat(X,compression_only=True,stride_size=self.stride_size,
+                                fj_mult=True)
+        return X_proj
     
     def fit_transform(self,X):        
         return self.fit(X).transform(X)
@@ -332,7 +346,7 @@ def get_compressed_soap(unlinsoap,u_mat,einsum_str,symmetric=False,lin_out=True,
     
     # projection 
     p = np.einsum(einsum_str,u_mat,u_mat,unlinsoap,optimize='optimal')
-    
+    dtype = p.dtype
     if len(unlinsoap.shape) == 6:
         Nsoap,nspecies, nspecies, nmax, nmax, lmax1 = p.shape
         shape1 = (Nsoap,1,1,1,1,1)
@@ -348,7 +362,7 @@ def get_compressed_soap(unlinsoap,u_mat,einsum_str,symmetric=False,lin_out=True,
     
     if symmetric is True:
         p = p.transpose(0,1,3,2,4,5).reshape(Nsoap,nspecies*nmax, nspecies*nmax, lmax1) if trans is True else p
-        p = symmetrize(p)
+        p = symmetrize(p,dtype)
 
     if lin_out:
         return p.reshape((Nsoap,-1))

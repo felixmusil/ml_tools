@@ -138,7 +138,7 @@ defvjp(average_kernel,grad_average_kernel,None,None)
 
 def symmetrize(p,dtype=np.float64):
     Nsoap,Ncomp,_,nn = p.shape
-    p2 = np.empty((Nsoap,Ncomp*(Ncomp + 1)/2, nn),dtype=dtype)
+    p2 = np.zeros((Nsoap,Ncomp*(Ncomp + 1)/2, nn),dtype=dtype)
     stride = [0] + list(range(Ncomp,0,-1))
     stride = np.cumsum(stride)
     ids = []

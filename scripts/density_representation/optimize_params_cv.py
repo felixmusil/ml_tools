@@ -126,7 +126,8 @@ def soap_cov_loss(x_opt,rawsoaps,y,cv,jitter,disable_pbar=True,leave=False,compr
     return mse
 
 def sor_fj_loss(x_opt,data,y,cv,jitter,disable_pbar=True,leave=False,kernel=None,
-                compressor=None,strides=None,active_strides=None,opt_reg=True,return_score=False):
+                compressor=None,strides=None,active_strides=None,stride_size=None,return_score=False):
+    opt_reg = True
     if opt_reg is True:
         Lambda = x_opt[0]
         fj = x_opt[1:]
@@ -138,12 +139,12 @@ def sor_fj_loss(x_opt,data,y,cv,jitter,disable_pbar=True,leave=False,kernel=None
 
     unlinsoaps = data[0]
     unlinsoaps_active = data[1]
-    X = compressor.scale_features(unlinsoaps)
-    X_active = compressor.scale_features(unlinsoaps_active)
+    X = compressor.scale_features(unlinsoaps,stride_size)
+    X_active = compressor.scale_features(unlinsoaps_active,stride_size)
     # X = compressor.transform(unlinsoaps)
     # X_active = compressor.transform(unlinsoaps_active)
     if strides is not None and active_strides is not None:
-        X_active = dict(strides=active_strides,feature_matrix=X[active_ids])
+        X_active = dict(strides=active_strides,feature_matrix=X_active)
         X = dict(strides=strides,feature_matrix=X)
     
     kMM = kernel.transform(X_active,X_train=X_active)
@@ -271,6 +272,7 @@ if __name__ == '__main__':
         kernel = KernelSum(KernelPower(**kernel_params))
         strides = params['strides']
         has_sum_kernel = True
+        stride_size = 1000
         if 'fps_ids' in params:
             fps_ids_frames = params['fps_ids']
 
@@ -284,6 +286,7 @@ if __name__ == '__main__':
     else:
         kernel = KernelPower(**kernel_params)
         has_sum_kernel = False
+        stride_size = None
         if 'fps_ids' in params:
             active_ids = params['fps_ids'][:Nfps]
             
@@ -320,7 +323,7 @@ if __name__ == '__main__':
         if has_sum_kernel is False:
             args = (data,y,cv,jitter,False,False,kernel,compressor)
         elif has_sum_kernel is True:
-            args = (data,y,cv,jitter,False,False,kernel,compressor,strides,active_strides)
+            args = (data,y,cv,jitter,False,False,kernel,compressor,strides,active_strides,stride_size)
     else:
         raise ValueError('loss function: {}, does not exist.'.format(loss_type))
 
