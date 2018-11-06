@@ -14,7 +14,7 @@ defvjp(power,
     lambda ans, x, y : unbroadcast_f(x, lambda g: g * y * power(x,np.where(y, y - 1, 1.))),
     lambda ans, x, y : unbroadcast_f(y, lambda g: g * np.log(replace_zero(x, 1.)) * power(x,y))
       )  
-
+ 
 defjvp(power,      
     lambda g, ans, x, y : g * y * power(x,y-1),
     lambda g, ans, x, y : g * np.log(replace_zero(x, 1.)) * power(x,y)
@@ -70,7 +70,6 @@ def average_kernel(envKernel,Xstrides,Ystrides,is_square):
     elif is_square is True:
         # computes only lower triangular
         get_average_square(K,envKernel,ids_n)
-        
         K += np.tril(K,k=-1).T
     
     return K
@@ -106,7 +105,7 @@ def get_average_rectangular(kernel,env_kernel,ids_n,ids_m):
                     kernel[it,jt] += env_kernel[ii,jj]
             kernel[it,jt] /= (ind-ist)*(jnd-jst)
 
-
+# TODO see how to make the gradients on chunks too
 def grad_average_kernel(ans, envKernel,Xstrides,Ystrides,is_square):
     shape = list(envKernel.shape)
     new_shape = [len(Xstrides)-1,len(Ystrides)-1]

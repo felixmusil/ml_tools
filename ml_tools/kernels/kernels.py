@@ -5,7 +5,7 @@ from ..math_utils import power,average_kernel
 from ..utils import tqdm_cs,is_autograd_instance
 #from ..math_utils.basic import power,average_kernel
 from scipy.sparse import issparse
-
+ 
    
 class KernelPower(KernelBase):
     def __init__(self,zeta):
