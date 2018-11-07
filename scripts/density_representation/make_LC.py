@@ -107,6 +107,7 @@ if __name__ == '__main__':
         is_SoR = True
 
     elif 'sparse_kernel' in inp and 'sum_kernel' in inp:
+        active_inp = inp['sparse_kernel']['active_inp']
         Lambda = inp['sparse_kernel']['params']['Lambda']
         Nfps = inp['sparse_kernel']['active_inp']['Nfps']
         
