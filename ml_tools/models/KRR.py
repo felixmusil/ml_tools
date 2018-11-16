@@ -105,21 +105,22 @@ class KRRFastCV(RegressorBase):
     
     def fit(self,kernel,y):
         '''Fast cv scheme. Destroy kernel.'''
-        np.multiply(self.delta**2,kernel,out=kernel)
-        kernel[np.diag_indices_from(kernel)] += self.jitter
-        kernel = np.linalg.inv(kernel)
-        alpha = np.dot(kernel,y)
+	invkernel = kernel.copy()
+        np.multiply(self.delta**2,invkernel,out=invkernel)
+        invkernel[np.diag_indices_from(invkernel)] += self.jitter
+        invkernel = np.linalg.inv(invkernel)
+        alpha = np.dot(invkernel,y)
         Cii = []
         beta = np.zeros(alpha.shape)
         self.y_pred = np.zeros(y.shape)
         self.error = np.zeros(y.shape)
-        for _,test in self.cv.split(kernel):
-            Cii = kernel[np.ix_(test,test)]
+        for _,test in self.cv.split(invkernel):
+            Cii = invkernel[np.ix_(test,test)]
             beta = np.linalg.solve(Cii,alpha[test]) 
             self.y_pred[test] = y[test] - beta
             self.error[test] = beta # beta = y_true - y_pred 
 
-        del kernel
+        del invkernel
         
     def predict(self,kernel=None):
         '''kernel.shape is expected as (nPred,nTrain)'''

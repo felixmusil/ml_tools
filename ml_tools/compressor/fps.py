@@ -14,7 +14,6 @@ class FPSFilter(BaseEstimator,TransformerMixin):
         else:
             # give a function or class kernel
             self.precompute_kernel = precompute_kernel
-
         self.kernel = kernel
         self.disable_pbar = disable_pbar
         self.transformation_mat = None
@@ -52,7 +51,6 @@ class FPSFilter(BaseEstimator,TransformerMixin):
             ifps, dfps = do_fps_feature(x,d=Nselect,kernel=self.kernel,disable_pbar=self.disable_pbar)
         elif self.precompute_kernel is None:
             ifps, dfps = do_fps_kernel(self.kernel,d=Nselect,disable_pbar=self.disable_pbar)
-            
         
         if self.act_on == 'feature A transform':
             self.transformation_mat = get_A_matrix(x.T[:,ifps],x.T)
