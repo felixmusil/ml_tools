@@ -237,19 +237,18 @@ class KernelSparseSoR(KernelBase):
         self.Lambda = params['Lambda']
         
     def transform(self,X,y=None,X_train=None):
-        if X_train is None and isinstance(X,dict) is False and y is not None:
+        if X_train is None and y is not None:
             Xs = self.X_pseudo
             
-            kMM = self.kernel(Xs,Y=Xs)
-            kMN = self.kernel(Xs,Y=X)
+            kMM = self.kernel.transform(Xs)
+            kMN = self.kernel.transform(Xs,X_train=X)
             ## assumes Lambda= Lambda**2*np.diag(np.ones(n))
             sparseK = kMM + np.dot(kMN,kMN.T)/self.Lambda**2
             sparseY = np.dot(kMN,y)/self.Lambda**2
 
             return sparseK,sparseY
-
         else: 
-            return self.kernel(X,Y=self.X_pseudo)
+            return self.kernel.transform(X,X_train=self.X_pseudo)
 
     def pack(self):
         state = self.get_params()

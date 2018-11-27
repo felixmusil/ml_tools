@@ -1,4 +1,4 @@
-from numba import njit,prange,void,float64,float32,int32,vectorize,jit,config,threading_layer
+from numba import njit,prange,void,float64,float32,int32,int64,vectorize,jit,config,threading_layer
 import math
 from ..base import np
 from autograd.extend import primitive,defvjp,defjvp
@@ -143,7 +143,7 @@ def symmetrize(p,dtype=np.float64):
     ids = []
     for i,st,nd in zip(range(Ncomp-1),stride[:-1],stride[1:]):
         ids.append([i,st,nd])
-    ids = np.asarray(ids,dtype=np.int32)
+    ids = np.asarray(ids,dtype=np.int32).reshape((-1,3))
     symm_0(p,p2,ids,Nsoap,Ncomp)
     return p2
 
@@ -196,13 +196,15 @@ def opt_0(rawsoap,p,rs_index,fac,ff,Nframe,nmax,nspecies,lmax):
                 p[iframe,s2, s1] = p[iframe,s1, s2].transpose((1,0,2))
 
 @njit([void(float64[:,:,:,:], float64[:,:,:],int32[:,:],int32,int32),
-        void(float32[:,:,:,:], float32[:,:,:],int32[:,:],int32,int32)],parallel=True)
+        void(float32[:,:,:,:], float32[:,:,:],int32[:,:],int32,int32),
+        void(float64[:,:,:,:], float64[:,:,:],int32[:,:],int64,int64),
+        void(float32[:,:,:,:], float32[:,:,:],int32[:,:],int64,int64)],parallel=True)
 def symm_0(p,p2,ids,Nsoap,Ncomp):
     N = len(ids)
     fac = math.sqrt(2.0)
     for iframe in prange(Nsoap):
         for ii in prange(N):
-            i,st,nd = ids[ii,0],ids[ii,1],ids[ii,2],
+            i,st,nd = ids[ii,0],ids[ii,1],ids[ii,2]
             p2[iframe,st] = p[iframe,i, i]
             p2[iframe,st+1:nd] = p[iframe,i, (i+1):Ncomp]*fac
         p2[iframe,-1] = p[iframe,Ncomp-1,Ncomp-1]

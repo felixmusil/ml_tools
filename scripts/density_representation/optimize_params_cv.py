@@ -130,12 +130,12 @@ def sor_fj_loss(x_opt,data,y,cv,jitter,disable_pbar=True,leave=False,kernel=None
     opt_reg = True
     if opt_reg is True:
         Lambda = x_opt[0]
-        fj = x_opt[1:]
+        scaling_factors = x_opt[1:]
     else:
         Lambda = opt_reg
-        fj = x_opt
+        scaling_factors = x_opt
     compressor.to_reshape = False
-    compressor.set_fj(fj)
+    compressor.set_scaling_factors(scaling_factors)
 
     unlinsoaps = data[0]
     unlinsoaps_active = data[1]
