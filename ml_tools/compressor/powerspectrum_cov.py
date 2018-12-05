@@ -4,7 +4,7 @@ from scipy.sparse import lil_matrix,csr_matrix,issparse
 from ..utils import tqdm_cs,s2hms
 from time import time
 from ..math_utils import symmetrize,get_unlin_soap
-  
+
 class CompressorCovarianceUmat(BaseEstimator,TransformerMixin):
     def __init__(self,soap_params=None,compression_type='species',dj=5,fj=None,stride_size=None,
                     symmetric=False,to_reshape=True,normalize=True,dtype='float64',full_opt=False):
@@ -28,7 +28,7 @@ class CompressorCovarianceUmat(BaseEstimator,TransformerMixin):
                       symmetric=self.symmetric,to_reshape=self.to_reshape,
                       einsum_str=self.einsum_str,normalize=self.normalize)
         return params
-    
+
     def set_params(self,params):
         self.dj = params['dj']
         self.compression_type = params['compression_type']
@@ -46,7 +46,7 @@ class CompressorCovarianceUmat(BaseEstimator,TransformerMixin):
         nspecies = len(self.soap_params['global_species'])
         lmax1 = self.soap_params['lmax'] + 1
         nmax = self.soap_params['nmax']
-        identity = lambda x: x 
+        identity = lambda x: x
         reshape = lambda x: x.transpose(0,1,3,2,4,5).reshape((-1,nspecies*nmax, nspecies*nmax,lmax1))
         if 'species*radial' in self.compression_type:
             self.modify = reshape
@@ -81,7 +81,7 @@ class CompressorCovarianceUmat(BaseEstimator,TransformerMixin):
         elif 'angular' not in self.compression_type:
             # self.dj = u_mat.shape[0]
             self.dl = 0
-        
+
         self.fj = None
         self.uj = u_mat.reshape((self.dj,self.dj))
 
@@ -92,7 +92,7 @@ class CompressorCovarianceUmat(BaseEstimator,TransformerMixin):
 
     def get_covariance_umat_full(self,unlinsoap):
         '''
-        Compute the covariance of the given unlinsoap and decomposes it 
+        Compute the covariance of the given unlinsoap and decomposes it
         unlinsoap.shape = (Nsample,nspecies, nspecies, nmax, nmax, lmax+1)
         '''
         Nsample = unlinsoap.shape[0]
@@ -103,12 +103,14 @@ class CompressorCovarianceUmat(BaseEstimator,TransformerMixin):
                             self.soap_params['global_species'],dtype=self.dtype)
         else:
             X = unlinsoap.mean(axis=0)
-        
+
         X = np.squeeze(X)
 
         nspecies, nspecies, nmax, nmax, lmax1 =  X.shape
-        
-        identity = lambda x: x 
+
+        l_factor = np.sqrt(2*np.arange(lmax1)+1)
+
+        identity = lambda x: x
         reshape = lambda x: x.transpose(0,1,3,2,4,5).reshape((-1,nspecies*nmax, nspecies*nmax,lmax1))
         if self.compression_type in ['species']:
             cov = X.mean(axis=(4)).trace(axis1=2, axis2=3)
@@ -117,7 +119,7 @@ class CompressorCovarianceUmat(BaseEstimator,TransformerMixin):
             self.modify = identity
         elif self.compression_type in ['angular+species']:
             X_c = X.transpose(4,0,1,2,3)
-            cov = X_c.trace(axis1=3, axis2=4)
+            cov = X_c.trace(axis1=3, axis2=4)*l_factor.reshape((-1,1,1))
             self.einsum_str = 'ij,nm,ajmopl->ainopl'
             self.scale_features_str = 'l,j,m,ajmopl->ajmopl'
             self.modify = identity
@@ -128,21 +130,21 @@ class CompressorCovarianceUmat(BaseEstimator,TransformerMixin):
             self.modify = identity
         elif self.compression_type in ['angular+radial']:
             X_c = X.transpose(4,0,1,2,3)
-            cov = X_c.trace(axis1=1, axis2=2)
+            cov = X_c.trace(axis1=1, axis2=2)*l_factor.reshape((-1,1,1))
             self.einsum_str = 'ij,nm,aopjml->aopinl'
             self.scale_features_str = 'l,j,m,aopjml->aopjml'
             self.modify = identity
         elif self.compression_type in ['species*radial']:
             X_c = X.transpose(0,2,1,3,4).reshape((nspecies*nmax, nspecies*nmax,lmax1))
             cov = X_c.mean(axis=(2))
-            
+
             self.einsum_str = 'ij,nm,ajml->ainl'
             self.scale_features_str = 'j,m,ajml->ajml'
             # there is a contraction here so we need to reshape the input before transforming it
             self.modify = reshape
         elif self.compression_type in ['angular+species*radial']:
             X_c = X.transpose(4,0,2,1,3).reshape((lmax1,nspecies*nmax, nspecies*nmax))
-            cov = X_c
+            cov = X_c*l_factor.reshape((-1,1,1))
             self.einsum_str = 'ij,nm,ajml->ainl'
             self.scale_features_str = 'l,j,m,ajml->ajml'
             self.modify = reshape
@@ -160,7 +162,7 @@ class CompressorCovarianceUmat(BaseEstimator,TransformerMixin):
             eva = np.flip(eva,axis=1)
             eve = np.flip(eve,axis=2)
             return eve.transpose((0,2,1)),eva
-        
+
     def fit(self,X):
         if issparse(X) is True:
             X_c = X
@@ -168,26 +170,26 @@ class CompressorCovarianceUmat(BaseEstimator,TransformerMixin):
             X_c = self.reshape_(np.asarray(X,dtype=self.dtype))
         else:
             X_c = np.asarray(X,dtype=self.dtype)
-        
+
         self.u_mat_full, self.eig = self.get_covariance_umat_full(X_c)
-        
+
         return self
-    
+
     def project_on_u_mat(self,X,compression_only=False,stride_size=None,fj_mult=False):
 
         N = X.shape[0]
 
         if issparse(X) is False and stride_size is None:
-            bounds = [(0,N)] 
+            bounds = [(0,N)]
         elif issparse(X) is True or stride_size is not None:
             Nstride = N // stride_size
             bounds = [[ii*stride_size,(ii+1)*stride_size] for ii in range(Nstride)]
             bounds[-1][-1] += N % stride_size
 
         X_compressed = []
-        
+
         for st,nd in tqdm_cs(bounds,desc='Umat Proj',leave=False):
-            
+
             if issparse(X) is True:
                 X_ = np.asarray(X[st:nd].toarray(),dtype=self.dtype)
             else:
@@ -215,7 +217,7 @@ class CompressorCovarianceUmat(BaseEstimator,TransformerMixin):
                     u_mat = np.array(self.u_mat_full[:self.dj,:],dtype=self.dtype)
                 elif 'angular' in self.compression_type:
                     u_mat = np.array(self.u_mat_full[:,:self.dj,:],dtype=self.dtype)
-                
+
             if compression_only is False:
                 X_compressed.append(get_compressed_soap(X_c,u_mat,self.einsum_str,symmetric=False,
                                     lin_out=False,normalize=self.normalize))
@@ -230,7 +232,7 @@ class CompressorCovarianceUmat(BaseEstimator,TransformerMixin):
             return aa
 
     def scale_features(self,projected_unlinsoap,stride_size=None):
-        
+
         if self.full_opt is False:
             return self.scale_features_diag(projected_unlinsoap,stride_size)
         elif self.full_opt is True:
@@ -238,7 +240,7 @@ class CompressorCovarianceUmat(BaseEstimator,TransformerMixin):
 
     def get_bounds(self,N,stride_size=None):
         if stride_size is None:
-            bounds = [(0,N)] 
+            bounds = [(0,N)]
         elif stride_size is not None:
             Nstride = N // stride_size
             bounds = [[ii*stride_size,(ii+1)*stride_size] for ii in range(Nstride)]
@@ -256,7 +258,7 @@ class CompressorCovarianceUmat(BaseEstimator,TransformerMixin):
                 args += [self.fj,self.fj,X_c]
             elif 'angular' in self.compression_type:
                 args += [self.fl,self.fj,self.fj,X_c]
-            
+
             kwargs = dict(optimize=False)
             p = np.einsum(*args,**kwargs)
             if len(p.shape) == 6:
@@ -292,7 +294,7 @@ class CompressorCovarianceUmat(BaseEstimator,TransformerMixin):
         N = projected_unlinsoap.shape[0]
         bounds = self.get_bounds(N,stride_size)
         X_compressed = []
-        
+
         for st,nd in tqdm_cs(bounds,desc='Feature Scaling Full',leave=False):
             args = [self.scale_features_full_str]
             X_c = projected_unlinsoap[st:nd]
@@ -300,7 +302,7 @@ class CompressorCovarianceUmat(BaseEstimator,TransformerMixin):
                 args += [self.uj,self.uj,X_c]
             elif 'angular' in self.compression_type:
                 raise Exception('Not implemented')
-            
+
             kwargs = dict(optimize=False)
             p = np.einsum(*args,**kwargs)
             if len(p.shape) == 6:
@@ -330,13 +332,13 @@ class CompressorCovarianceUmat(BaseEstimator,TransformerMixin):
         elif stride_size is not None:
             aa = np.concatenate(X_compressed,axis=0)
             return aa
-        
+
     def transform(self,X):
         X_proj = self.project_on_u_mat(X,compression_only=True,stride_size=self.stride_size,
                                 fj_mult=True)
         return X_proj
-    
-    def fit_transform(self,X):        
+
+    def fit_transform(self,X):
         return self.fit(X).transform(X)
 
     def pack(self):
@@ -362,7 +364,7 @@ class AngularScaler(BaseEstimator,TransformerMixin):
         params = dict(soap_params=self.soap_params,fj=self.fj,
                       to_reshape=self.to_reshape)
         return params
-    
+
     def set_params(self,params):
         self.soap_params = params['soap_params']
         self.fj = params['fj']
@@ -371,19 +373,19 @@ class AngularScaler(BaseEstimator,TransformerMixin):
     def set_fj(self,fj):
         #self.u_mat = None
         self.fj = fj
-        
+
     def reshape_(self,X):
         unwrapped_X = get_unlin_soap(X,self.soap_params,self.soap_params['global_species'])
-        
+
         Nsample,nspecies, nspecies, nmax, nmax, lmax1 =  unwrapped_X.shape
-        
+
         X_c = unwrapped_X.transpose(0,1,3,2,4,5).reshape((Nsample,nspecies*nmax, nspecies*nmax,lmax1))
-        
+
         return symmetrize(X_c)
-    
-    def fit(self,X=None):       
+
+    def fit(self,X=None):
         return self
-    
+
     def transform(self,X):
         if self.to_reshape:
             X_c = self.reshape_(X)
@@ -394,9 +396,9 @@ class AngularScaler(BaseEstimator,TransformerMixin):
         #aa = np.tensordot(X_c,np.diag(self.fj),axes=(2,0))
         aan = np.linalg.norm(aa,axis=1).reshape((Nsoap,1))
         aa /= aan
-        
+
         return aa
-    
+
     def fit_transform(self,X):
         return self.transform(X)
 
@@ -407,18 +409,18 @@ class AngularScaler(BaseEstimator,TransformerMixin):
 
     def unpack(self,state):
         self.set_params(state['params'])
-        
-    
+
+
 def get_compressed_soap(unlinsoap,u_mat,einsum_str,symmetric=False,lin_out=True,normalize=True):
     '''
     Compress unlinsoap using u_mat
 
     unlinsoap.shape = (Nsample,nspecies, nspecies, nmax, nmax, lmax+1)
-    u_mat.shape = 
+    u_mat.shape =
     p2.shape = ()
     '''
-    
-    # projection 
+
+    # projection
     p = np.einsum(einsum_str,u_mat,u_mat,unlinsoap,optimize='optimal')
     dtype = p.dtype
     if len(unlinsoap.shape) == 6:
@@ -433,7 +435,7 @@ def get_compressed_soap(unlinsoap,u_mat,einsum_str,symmetric=False,lin_out=True,
     if normalize is True:
         pn = np.linalg.norm(p.reshape((Nsoap,-1)),axis=1).reshape(shape1)
         p /=  pn
-    
+
     if symmetric is True:
         p = p.transpose(0,1,3,2,4,5).reshape(Nsoap,nspecies*nmax, nspecies*nmax, lmax1) if trans is True else p
         p = symmetrize(p,dtype)
@@ -444,9 +446,9 @@ def get_compressed_soap(unlinsoap,u_mat,einsum_str,symmetric=False,lin_out=True,
         return p
 
 
-    
 
-    
+
+
 
 
 
@@ -463,7 +465,7 @@ def get_compressed_soap(unlinsoap,u_mat,einsum_str,symmetric=False,lin_out=True,
 #                       soap_params=self.soap_params,fj=self.fj,
 #                       symmetric=self.symmetric,to_reshape=self.to_reshape)
 #         return params
-    
+
 #     def set_params(self,params):
 #         self.dj = params['dj']
 #         self.compression_type = params['compression_type']
@@ -472,16 +474,16 @@ def get_compressed_soap(unlinsoap,u_mat,einsum_str,symmetric=False,lin_out=True,
 #         self.symmetric = params['symmetric']
 #         self.to_reshape = params['to_reshape']
 
-        
+
 #     def set_fj(self,fj):
 #         #self.u_mat = None
 #         self.fj = fj
 #         self.dj = len(fj)
 #     def reshape_(self,X):
 #         unwrapped_X = get_unlin_soap(X,self.soap_params,self.soap_params['global_species'])
-        
+
 #         Nsample,nspecies, nspecies, nmax, nmax, lmax1 =  unwrapped_X.shape
-        
+
 #         if self.compression_type == 'species':
 #             X_c = unwrapped_X.reshape((Nsample,nspecies, nspecies,nmax**2*lmax1))
 #         elif self.compression_type == 'radial':
@@ -489,31 +491,31 @@ def get_compressed_soap(unlinsoap,u_mat,einsum_str,symmetric=False,lin_out=True,
 #         elif self.compression_type == 'species+radial':
 #             X_c = unwrapped_X.transpose(0,1,3,2,4,5).reshape((Nsample,nspecies*nmax, nspecies*nmax,lmax1))
 #         return X_c
-    
+
 #     def fit(self,X):
-        
+
 #         if self.to_reshape:
 #             X_c = self.reshape_(X)
 #         else:
 #             X_c = X
-        
+
 #         self.u_mat_full, self.eig = get_covariance_umat_full(X_c)
-        
+
 #         return self
-    
+
 #     def transform(self,X):
 #         if self.to_reshape:
 #             X_c = self.reshape_(X)
 #         else:
 #             X_c = X
-        
+
 #         if self.fj is not None:
 #             #u_mat = np.dot(self.fj,self.u_mat_full[:self.dj,:])
 #             u_mat = np.einsum("ja,j->ja",self.u_mat_full[:self.dj,:],self.fj,optimize='optimal')
 #         else:
 #             u_mat = self.u_mat_full[:self.dj,:]
 #         return get_compressed_soap(X_c,u_mat,symmetric=self.symmetric)
-    
+
 #     def fit_transform(self,X):
 #         if self.to_reshape:
 #             X_c = self.reshape_(X)
@@ -526,7 +528,7 @@ def get_compressed_soap(unlinsoap,u_mat,einsum_str,symmetric=False,lin_out=True,
 #             #u_mat = np.einsum("ja,j->ja",self.u_mat_full[:self.dj,:],self.fj,optimize='optimal')
 #         else:
 #             u_mat = self.u_mat_full[:self.dj,:]
-        
+
 #         return get_compressed_soap(X_c,u_mat,symmetric=self.symmetric)
 
 #     def pack(self):
@@ -545,7 +547,7 @@ def get_compressed_soap(unlinsoap,u_mat,einsum_str,symmetric=False,lin_out=True,
 
 # def get_covariance_umat_full_old(unlinsoap):
 #     '''
-#     Compute the covariance of the given unlinsoap and decomposes it 
+#     Compute the covariance of the given unlinsoap and decomposes it
 #     unlinsoap.shape = (Nsoap,Nfull,Nfull,nn)
 #     '''
 #     cov = unlinsoap.mean(axis=(0,3))
