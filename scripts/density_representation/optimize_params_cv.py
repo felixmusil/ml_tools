@@ -1,6 +1,6 @@
 import argparse
 import time,sys
-   
+
 import sys,os
 sys.path.insert(0,'/home/musil/git/ml_tools/')
 
@@ -13,7 +13,7 @@ from ml_tools.models import KRRFastCV
 from ml_tools.kernels import KernelPower,KernelSum
 from ml_tools.split import EnvironmentalKFold,KFold
 from ml_tools.compressor import CompressorCovarianceUmat
-  
+
 
 def get_sp_mapping(frames,sp):
     ii = 0
@@ -28,7 +28,7 @@ def get_sp_mapping(frames,sp):
 def optimize_loss(loss_func,x_start=None,args=None,maxiter=100,ftol=1e-6):
     from scipy.optimize import minimize
     gloss_func = grad(loss_func,argnum=0)
-    
+
     pbar = tqdm_cs(total=maxiter)
     def call(Xi):
         Nfeval = pbar.n
@@ -40,19 +40,19 @@ def optimize_loss(loss_func,x_start=None,args=None,maxiter=100,ftol=1e-6):
         pbar.update()
     #const = spop.Bounds(np.zeros(x_start.shape),np.inf*np.ones(x_start.shape))
     myop = minimize(loss_func, x_start, args = args, jac=gloss_func,callback=call,
-                      method = 'L-BFGS-B', options = {"maxiter": maxiter, "disp": False, "maxcor":9, 
+                      method = 'L-BFGS-B', options = {"maxiter": maxiter, "disp": False, "maxcor":9,
                                                       "gtol":1e-9, "ftol":  ftol })
     pbar.close()
     return myop
 
 def sor_loss(x_opt,X,y,cv,jitter,disable_pbar=True,leave=False,return_score=False):
-    
+
     Lambda = x_opt[0]
     kMM = X[0]
     kMN = X[1]
-    
+
     Mactive,Nsample = kMN.shape
-    
+
     mse = 0
     y_p = np.zeros((Nsample,))
     scores = []
@@ -61,20 +61,20 @@ def sor_loss(x_opt,X,y,cv,jitter,disable_pbar=True,leave=False,return_score=Fals
         kMN_train =  kMN[:,train]
         kernel_train = kMM + np.dot(kMN_train,kMN_train.T)/Lambda**2 + np.diag(np.ones(Mactive))*jitter
         y_train = np.dot(kMN_train,y[train])/Lambda**2
-        
+
         # train the KRR model
         alpha = np.linalg.solve(kernel_train, y_train).flatten()
-        
+
         # make predictions
         kernel_test = kMN[:,test]
         y_pred = np.dot(alpha,kernel_test).flatten()
         if return_score is True:
             scores.append(get_score(y_pred,y[test]))
             #y_p[test] = y_pred
-        
-        mse += np.sum((y_pred-y[test])**2) 
+
+        mse += np.sum((y_pred-y[test])**2)
     mse /= len(y)
-    
+
     if return_score is True:
         #score = get_score(y_p,y)
         score = {}
@@ -89,16 +89,16 @@ def sor_loss(x_opt,X,y,cv,jitter,disable_pbar=True,leave=False,return_score=Fals
 def soap_cov_loss(x_opt,rawsoaps,y,cv,jitter,disable_pbar=True,leave=False,compressor=None,active_ids=None,return_score=False):
     Lambda = x_opt[0]
     fj = x_opt[1:]
-    
+
     compressor.set_fj(fj)
-    
+
     X = compressor.transform(rawsoaps)
     X_pseudo = X[active_ids]
-    
+
     kMM = np.dot(X_pseudo,X_pseudo.T)
     kMN = np.dot(X_pseudo,X.T)
     Mactive,Nsample = kMN.shape
-    
+
     mse = 0
     y_p = np.zeros((Nsample,))
     for train,test in tqdm_cs(cv.split(rawsoaps),total=cv.n_splits,disable=disable_pbar,leave=False):
@@ -106,23 +106,23 @@ def soap_cov_loss(x_opt,rawsoaps,y,cv,jitter,disable_pbar=True,leave=False,compr
         kMN_train =  kMN[:,train]
         kernel_train = (kMM + np.dot(kMN_train,kMN_train.T)/Lambda**2) + np.diag(np.ones(Mactive))*jitter
         y_train = np.dot(kMN_train,y[train])/Lambda**2
-        
-        # train the KRR model       
+
+        # train the KRR model
         alpha = np.linalg.solve(kernel_train, y_train).flatten()
-        
+
         # make predictions
         kernel_test = kMN[:,test]
         y_pred = np.dot(alpha,kernel_test).flatten()
         if return_score is True:
             y_p[test] = y_pred
-        
-        mse += np.sum((y_pred-y[test])**2) 
+
+        mse += np.sum((y_pred-y[test])**2)
     mse /= len(y)
-    
+
     if return_score is True:
         score = get_score(y_p,y)
         return score
-    
+
     return mse
 
 def sor_fj_loss(x_opt,data,y,cv,jitter,disable_pbar=True,leave=False,kernel=None,
@@ -146,12 +146,12 @@ def sor_fj_loss(x_opt,data,y,cv,jitter,disable_pbar=True,leave=False,kernel=None
     if strides is not None and active_strides is not None:
         X_active = dict(strides=active_strides,feature_matrix=X_active)
         X = dict(strides=strides,feature_matrix=X)
-    
+
     kMM = kernel.transform(X_active,X_train=X_active)
     kMN = kernel.transform(X_active,X_train=X)
 
     Mactive,Nsample = kMN.shape
-    
+
     mse = 0
     y_p = np.zeros((Nsample,))
     scores = []
@@ -160,20 +160,20 @@ def sor_fj_loss(x_opt,data,y,cv,jitter,disable_pbar=True,leave=False,kernel=None
         kMN_train =  kMN[:,train]
         kernel_train = (kMM + np.dot(kMN_train,kMN_train.T)/Lambda**2) + np.diag(np.ones(Mactive))*jitter
         y_train = np.dot(kMN_train,y[train])/Lambda**2
-        
-        # train the KRR model       
+
+        # train the KRR model
         alpha = np.linalg.solve(kernel_train, y_train).flatten()
-        
+
         # make predictions
         kernel_test = kMN[:,test]
         y_pred = np.dot(alpha,kernel_test).flatten()
         if return_score is True:
             scores.append(get_score(y_pred,y[test]))
             #y_p[test] = y_pred
-        
-        mse += np.sum((y_pred-y[test])**2) 
+
+        mse += np.sum((y_pred-y[test])**2)
     mse /= len(y)
-    
+
     if return_score is True:
         #score = get_score(y_p,y)
         score = {}
@@ -183,19 +183,19 @@ def sor_fj_loss(x_opt,data,y,cv,jitter,disable_pbar=True,leave=False,kernel=None
                 aa.append(sc[k])
             score[k] = np.mean(aa)
         return score
-    
+
     return mse
 
 def LL_sor_loss(x_opt,X,y,cv,jitter,disable_pbar=True,leave=False):
     Lambda = x_opt[0]
-    
+
     kMM = X[0]
     kMN = X[1]
     Mactive,Nsample = kMN.shape
-    
+
     kernel_ = kMM + np.dot(kMN,kMN.T)/Lambda**2 + np.diag(np.ones(Mactive))*jitter
     y_ = np.dot(kMN,y)/Lambda**2
-    
+
     # Get log likelihood score
     L = np.linalg.cholesky(kernel_)
     z = sp.linalg.solve_triangular(L,y_,lower=True)
@@ -222,18 +222,18 @@ if __name__ == '__main__':
     parser.add_argument("--compressor", type=str,default='', help="Name of the json file containing the trained compressor data.")
     parser.add_argument("--ftol", type=float,default=1e-6, help="Relative tolerance for the optimization to exit: (f^k - f^{k+1})/max{|f^k|,|f^{k+1}|,1} <= ftol ")
     parser.add_argument("--maxiter", type=int,default=300, help="Max Number of optimization steps")
-    
+
     parser.add_argument("--prop", type=str, help="Path to the corresponding properties")
     parser.add_argument("--out", type=str, help="Path to the corresponding output")
-    
+
     in_args = parser.parse_args()
 
     prop_fn = os.path.abspath(in_args.prop)
     y = np.load(prop_fn)
 
-    
+
     x_init = map(float, in_args.Xinit.split(','))
-    
+
     Nfps = in_args.Nfps
     Nfold = in_args.Nfold
     jitter = in_args.jitter
@@ -242,23 +242,23 @@ if __name__ == '__main__':
 
     rawsoaps_fn = os.path.abspath(in_args.X)
     print('Load data from: {}'.format(rawsoaps_fn))
-    params,X = load_data(rawsoaps_fn,mmap_mode=None) 
-    
+    params,X = load_data(rawsoaps_fn,mmap_mode=None)
+
     soap_params = params['soap_params']
     kernel_params = params['kernel_params']
-    
+
     out_fn = in_args.out
-    loss_type = in_args.loss 
-    
+    loss_type = in_args.loss
+
     if len(in_args.compressor) > 0:
         compressor_fn = in_args.compressor
         print('Load compressor from: {}'.format(compressor_fn))
         compressor = CompressorCovarianceUmat()
         state = load_pck(compressor_fn)
         compressor.unpack(state)
-        compressor.to_reshape = True 
+        compressor.to_reshape = True
         compressor.symmetric = False
-        compressor.set_fj(x_init[1:])
+        compressor.set_scaling_factors(x_init[1:])
     else:
         compressor_fn = None
     #############################################
@@ -267,7 +267,7 @@ if __name__ == '__main__':
         cv = EnvironmentalKFold(n_splits=Nfold,random_state=10,shuffle=True,mapping=env_mapping)
     else:
         cv = KFold(n_splits=Nfold,random_state=10,shuffle=True)
-    
+
     if 'strides' in params:
         kernel = KernelSum(KernelPower(**kernel_params))
         strides = params['strides']
@@ -289,7 +289,7 @@ if __name__ == '__main__':
         stride_size = None
         if 'fps_ids' in params:
             active_ids = params['fps_ids'][:Nfps]
-            
+
 
     print('Start: {}'.format(time.ctime()))
     sys.stdout.flush()
@@ -330,7 +330,7 @@ if __name__ == '__main__':
     print('Start optimization with {}'.format(x_init))
     sys.stdout.flush()
     x_opt = optimize_loss(loss_func,x_start=x_init,args=args,maxiter=maxiter,ftol=ftol)
-    
+
     print('Optimized params:')
     print('{}'.format(x_opt))
     print('score with the optimized parameters:')
@@ -342,6 +342,6 @@ if __name__ == '__main__':
                 maxiter=maxiter,ftol=ftol,loss_type=loss_type,Nfps=Nfps,
                 compressor_fn=compressor_fn,
                 Nfold=Nfold,rawsoaps_fn=rawsoaps_fn,prop_fn=prop_fn,message=x_opt.message)
-    
+
     print('dump results in {}'.format(out_fn))
     dump_json(out_fn,data)

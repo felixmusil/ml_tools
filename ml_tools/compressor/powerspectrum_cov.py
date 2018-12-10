@@ -178,7 +178,8 @@ class CompressorCovarianceUmat(BaseEstimator,TransformerMixin):
         return self
 
     def project_on_u_mat(self,X,compression_only=False,stride_size=None,fj_mult=False):
-
+        if stride_size is None:
+            stride_size = self.stride_size
         N = X.shape[0]
 
         if issparse(X) is False and stride_size is None:
