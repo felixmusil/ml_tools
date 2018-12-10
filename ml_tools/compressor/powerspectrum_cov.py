@@ -84,7 +84,7 @@ class CompressorCovarianceUmat(BaseEstimator,TransformerMixin):
 
         self.fj = None
         self.dj = int(np.sqrt(np.asarray(u_mat).size))
-        self.uj = u_mat.reshape((self.dj,self.dj))
+        self.uj = np.asarray(u_mat).reshape((self.dj,self.dj))
 
     def reshape_(self,X):
         unwrapped_X = get_unlin_soap(X,self.soap_params,
