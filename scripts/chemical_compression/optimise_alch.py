@@ -7,7 +7,7 @@ import numpy as np
 import conj_grad as cg
 import scipy.sparse as sp
 import scipy.optimize as opt
-
+from time import time,ctime
 ##########################################################################################
 
 def p(pdict):
@@ -245,7 +245,7 @@ def prepare_input(ffing, fprop, ntrain):
     f.close()
 
     try:
-        y = np.loadtxt(fprop)
+        y = np.load(fprop)
     except:
         print "Cannot find the property file"
         sys.exit()
@@ -288,15 +288,22 @@ def prepare_u(fu, species, nn, nspecies, nalch):
                      101:1.3, 102:1.3}
 
         #van der Waals radii
-	vdw_dict = {1:1.20, 2:1.40, 3:1.82, 4:1.53, 5:1.92, 6:1.70, \
-		    7:1.55, 8:1.52, 9:1.47, 10:1.54, 11:2.27, 12:1.73, \
-		    13:1.84, 14:2.10, 15:1.80, 16:1.80, 17:1.75, 18:1.88, \
-		    19:2.75, 20:2.31, 21:2.11, 28:1.63, 29:1.40, 30:1.39, \
-		    31:1.87, 32:2.11, 33:1.85, 34:1.90, 35:1.85, 36:0.88, \
-		    37:3.03, 38:2.49, 46:1.63, 47:1.72, 48:1.58, 49:1.93, \
-		    50:2.17, 51:2.06, 52:2.06, 53:1.98, 54:1.08, 55:3.43, \
-		    56:2.68, 78:1.75, 79:1.66, 80:1.55, 81:1.96, 82:2.02, \
-		    83:2.07, 84:1.97, 86:1.20}
+        # Van der Wals radii from W. M. Haynes, Handbook of Chemistry and Physics 95th Edition, CRC Press, New York, 2014, ISBN-10: 1482208679, ISBN-13: 978-1482208672.
+        # in Angtrom
+        vdw_dict = {1: 1.1, 2: 1.4, 3: 1.82, 4: 1.53, 5: 1.92, 6: 1.7, 7: 1.55,
+                8: 1.52, 9: 1.47, 10: 1.54, 11: 2.27, 12: 1.73, 13: 1.84,
+                14: 2.1, 15: 1.8, 16: 1.8, 17: 1.75, 18: 1.88, 19: 2.75,
+                20: 2.31, 21: 2.15, 22: 2.11, 23: 2.07, 24: 2.06, 25: 2.05,
+                26: 2.04, 27: 2.0, 28: 1.97, 29: 1.96, 30: 2.01, 31: 1.87,
+                32: 2.11, 33: 1.85, 34: 1.9, 35: 1.85, 36: 2.02, 37: 3.03,
+                38: 2.49, 39: 2.32, 40: 2.23, 41: 2.18, 42: 2.17, 43: 2.16,
+                44: 2.13, 45: 2.1, 46: 2.1, 47: 2.11, 48: 2.18, 49: 1.93,
+                50: 2.17, 51: 2.06, 52: 2.06, 53: 1.98, 54: 2.16, 55: 3.43,
+                56: 2.68, 57: 2.43, 58: 2.42, 59: 2.4, 60: 2.39, 62: 2.36,
+                63: 2.35, 64: 2.34, 65: 2.33, 66: 2.31, 67: 2.3, 68: 2.29,
+                69: 2.27, 70: 2.26, 71: 2.24, 72: 2.23, 73: 2.22, 74: 2.18,
+                75: 2.16, 76: 2.16, 77: 2.13, 78: 2.13, 79: 2.14, 80: 2.23,
+                81: 1.96, 82: 2.02, 83: 2.07}
 
 
         enevs = np.zeros((nspecies))
@@ -325,6 +332,8 @@ def prepare_u(fu, species, nn, nspecies, nalch):
 def main(ffing, fprop, seed, nalch, sigmaw, sigmau, suffix, fu, species, \
          ntrain, nmax, lmax):
     
+    print('Start : {}'.format(ctime()))
+    sys.stdout.flush()
     ffing = str(ffing)
     fprop = str(fprop)
     seed = int(seed)
@@ -333,7 +342,7 @@ def main(ffing, fprop, seed, nalch, sigmaw, sigmau, suffix, fu, species, \
     sigmau = float(sigmau)
     suffix = str(suffix)
     fu = str(fu)
-    species = sorted([int(species) for species in species.split()])
+    species = sorted([int(species) for species in species.split(',')])
     nspecies = len(species)
     ntrain = int(ntrain)
     np.random.seed(seed)
@@ -343,10 +352,10 @@ def main(ffing, fprop, seed, nalch, sigmaw, sigmau, suffix, fu, species, \
     u = prepare_u(fu, species, nn, nspecies, nalch)
 
     nalchstr = 'nalch'+str(nalch)
-    if suffix != '': suffix = '_'+suffix
+    #if suffix != '': suffix = '_'+suffix
 
     #shuffling to undo fps
-    rr = [i for i in xrange(ntrain)]
+    rr = range(ntrain)
     np.random.shuffle(rr)
     pdict2 = {}
     for i, j in enumerate(rr):
@@ -391,23 +400,25 @@ def main(ffing, fprop, seed, nalch, sigmaw, sigmau, suffix, fu, species, \
     #construct the total gradient of the loss w.r.t. u (A + B)
     def df(u): return gua(u) + gub(u) + sigmau*u.ravel()
 
+    print('Start opt: {}'.format(ctime()))
     for i in xrange(50):
         if os.path.exists('EXIT') == True: 
-            print "Found EXIT file"
+            print("Found EXIT file")
             break
-        iterstr = '_niter'+str(i)
-        np.save('u_'+nalchstr+iterstr+suffix+'.npy', u.T)
-        np.save('chem_kern_'+nalchstr+iterstr+suffix+'.npy', np.dot(u, u.T))
-        print "RMSE %.6f" % np.sqrt(2.0*(f(u) - 0.5*sigmau*np.linalg.norm(u)**2)/float(ntrain))
+        iterstr = '-niter'+str(i)
+        np.save(suffix+iterstr+'-u_mat+'+'.npy', u.T)
+        np.save(suffix+iterstr+'-kappa_mat'+'.npy', np.dot(u, u.T))
+        print("RMSE %.6f" % np.sqrt(2.0*(f(u) - 0.5*sigmau*np.linalg.norm(u)**2)/float(ntrain)))
         res = opt.minimize(fun=f, x0=u, jac=df, method='L-BFGS-B', \
                            options={'maxiter':10, 'disp':True})
         u = res.x.reshape((nspecies, nalch))
         sys.stdout.flush()
 
-    iterstr = '_niter'+str(i+1)
-    np.save('u_'+nalchstr+iterstr+suffix+'.npy', u.T)
-    np.save('chem_kern_'+nalchstr+iterstr+suffix+'.npy', np.dot(u, u.T))
-
+    iterstr = '-niter'+str(i+1)
+    np.save(suffix+iterstr+'-u_mat+'+'.npy', u.T)
+    np.save(suffix+iterstr+'-kappa_mat'+'.npy', np.dot(u, u.T))
+    print('dump results in: {} {}'.format(suffix+iterstr+'-u_mat+'+'.npy',suffix+iterstr+'-kappa_mat+'+'.npy'))
+    print('Finished: {}'.format(ctime()))
 ##########################################################################################
 ##########################################################################################
 

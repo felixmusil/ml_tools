@@ -13,14 +13,14 @@ def power(x,zeta):
 defvjp(power,
     lambda ans, x, y : unbroadcast_f(x, lambda g: g * y * power(x,np.where(y, y - 1, 1.))),
     lambda ans, x, y : unbroadcast_f(y, lambda g: g * np.log(replace_zero(x, 1.)) * power(x,y))
-      )  
- 
-defjvp(power,      
+      )
+
+defjvp(power,
     lambda g, ans, x, y : g * y * power(x,y-1),
     lambda g, ans, x, y : g * np.log(replace_zero(x, 1.)) * power(x,y)
       )
 
- 
+
 # @primitive
 # def average_kernel(envKernel,Xstrides,Ystrides,is_square):
 #     N,M = len(Xstrides)-1,len(Ystrides)-1
@@ -62,22 +62,22 @@ def average_kernel(envKernel,Xstrides,Ystrides,is_square):
     N,M = len(Xstrides)-1,len(Ystrides)-1
     K = np.zeros((N,M),order='C')
     ids_n = np.asarray(Xstrides,dtype=np.int32)
-    
+
     if is_square is False:
         ids_m = np.asarray(Ystrides,dtype=np.int32)
         get_average_rectangular(K,envKernel,ids_n,ids_m)
-        
+
     elif is_square is True:
         # computes only lower triangular
         get_average_square(K,envKernel,ids_n)
         K += np.tril(K,k=-1).T
-    
+
     return K
 
 @njit([void(float64[:,:], float64[:,:],int32[:]),
         void(float32[:,:], float32[:,:],int32[:])],parallel=True)
 def get_average_square(kernel,env_kernel,ids_n):
-    Nenv = ids_n.shape[0]-1    
+    Nenv = ids_n.shape[0]-1
     for it in prange(Nenv):
         ist,ind = ids_n[it],ids_n[it+1]
         for jt in prange(Nenv):
@@ -88,8 +88,8 @@ def get_average_square(kernel,env_kernel,ids_n):
                 for jj in prange(jst,jnd):
                     kernel[it,jt] += env_kernel[ii,jj]
             kernel[it,jt] /= (ind-ist)*(jnd-jst)
-        
 
+ 
 @njit([void(float64[:,:], float64[:,:],int32[:],int32[:]),
         void(float32[:,:], float32[:,:],int32[:],int32[:])],parallel=True)
 def get_average_rectangular(kernel,env_kernel,ids_n,ids_m):
@@ -116,7 +116,7 @@ def grad_average_kernel(ans, envKernel,Xstrides,Ystrides,is_square):
         for ii,(ist,ind) in enumerate(zip(Xstrides[:-1],Xstrides[1:])):
             for jj,(jst,jnd) in enumerate(zip(Ystrides[:-1],Ystrides[1:])):
                 ids[ii*M+jj,:] = np.asarray([ii,ist,ind,jj,jst,jnd],np.int32)
-                
+
         grad_average_kernel_helper(g_repeated,g,ids)
         return g_repeated
     return vjp
@@ -131,7 +131,7 @@ def grad_average_kernel_helper(g_repeated,g,ids):
             for kt in range(slb_st,slb_nd):
                 g_repeated[jt,kt] = g[I,J]/(aa*(slb_nd-slb_st))
 
-defvjp(average_kernel,grad_average_kernel,None,None)    
+defvjp(average_kernel,grad_average_kernel,None,None)
 
 
 
@@ -149,7 +149,7 @@ def symmetrize(p,dtype=np.float64):
 
 def get_unlin_soap(rawsoap,params,global_species,dtype=np.float64):
     """
-    Take soap vector from QUIP and undo the vectorization 
+    Take soap vector from QUIP and undo the vectorization
     (nspecies is symmetric and sometimes nmax so some terms don't exist in the soap vector of QUIP)
     """
     nmax = params['nmax']
@@ -157,7 +157,7 @@ def get_unlin_soap(rawsoap,params,global_species,dtype=np.float64):
     #nn = nmax**2*(lmax + 1)
     nspecies = len(global_species)
     Nsoap = rawsoap.shape[0]
-    
+
     #translate the fingerprints from QUIP
     p = np.zeros((Nsoap,nspecies, nspecies, nmax, nmax, lmax + 1),dtype=dtype)
     rs_index = np.asarray([(i%nmax, (i - i%nmax)/nmax) for i in xrange(nmax*nspecies)],dtype=np.int32)
@@ -166,16 +166,16 @@ def get_unlin_soap(rawsoap,params,global_species,dtype=np.float64):
     for i in xrange(nmax*nspecies):
         for j in xrange(i + 1):
             mult = 0  if i != j else 1
-            
+
             fac[i,j] = np.array([mult,counter])
             counter += (lmax + 1)
-            
+
     ff = np.array([np.sqrt(0.5),1.0])
     Nframe = rawsoap.shape[0]
     opt_0(rawsoap,p,rs_index,fac,ff,Nframe,nmax,nspecies,lmax)
-    
+
     return p
-    
+
 @njit([void(float64[:,:], float64[:,:,:,:,:,:],int32[:,:],int32[:,:,:],float64[:],int32,int32,int32,int32),
        void(float32[:,:], float32[:,:,:,:,:,:],int32[:,:],int32[:,:,:],float64[:],int32,int32,int32,int32)],parallel=True)
 def opt_0(rawsoap,p,rs_index,fac,ff,Nframe,nmax,nspecies,lmax):
@@ -189,7 +189,7 @@ def opt_0(rawsoap,p,rs_index,fac,ff,Nframe,nmax,nspecies,lmax):
 
                 p[iframe,s1, s2, n1, n2, :] = rawsoap[iframe,counter:counter+(lmax + 1)]*mult
                 if s1 == s2: p[iframe,s1, s2, n2, n1, :] = rawsoap[iframe,counter:counter+(lmax + 1)]*mult
-                
+
     for iframe in prange(Nframe):
         for s1 in prange(nspecies):
             for s2 in prange(s1):

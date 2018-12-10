@@ -77,10 +77,9 @@ def get_soaps(soapstr, rc, species, nspecies, nmax, lmax, nn, nab):
 def main(suffix, fxyz, rc, species, nmax, lmax, awidth, nframes, cutoff_dexp, cutoff_scale):
 
     suffix = str(suffix)
-    if suffix != '': suffix = '_'+suffix
     fxyz = str(fxyz)
     cutoff = float(rc)
-    species = sorted([int(species) for species in species.split()])
+    species = sorted([int(species) for species in species.split(',')])
     nmax = int(nmax)
     lmax = int(lmax)
     awidth = float(awidth)
@@ -122,7 +121,7 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
     parser.add_argument('-fxyz', type=str, help='Location of xyz file')
-    parser.add_argument('-species', type=str, help='List of elements e.g. "1 2 3"')
+    parser.add_argument('-species', type=str, help='List of elements e.g. 1,2,3')
     parser.add_argument('--suffix', type=str, default='', help='Filename suffix')
     parser.add_argument('--rc', type=float, default=3.0, help='Cutoff radius')
     parser.add_argument('--nmax', type=int, default=9, help='Maximum radial label')
