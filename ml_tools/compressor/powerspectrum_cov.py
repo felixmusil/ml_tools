@@ -25,6 +25,7 @@ class CompressorCovarianceUmat(BaseEstimator,TransformerMixin):
                       dtype=self.dtype,stride_size=self.stride_size,
                       scale_features_str=self.scale_features_str,
                       full_opt=self.full_opt,
+                      scale_features_full_str=self.scale_features_full_str,
                       symmetric=self.symmetric,to_reshape=self.to_reshape,
                       einsum_str=self.einsum_str,normalize=self.normalize)
         return params
@@ -42,6 +43,7 @@ class CompressorCovarianceUmat(BaseEstimator,TransformerMixin):
         self.scale_features_str = params['scale_features_str']
         self.stride_size = params['stride_size']
         self.full_opt = params['full_opt']
+        self.scale_features_full_str = params['scale_features_full_str']
 
         nspecies = len(self.soap_params['global_species'])
         lmax1 = self.soap_params['lmax'] + 1
