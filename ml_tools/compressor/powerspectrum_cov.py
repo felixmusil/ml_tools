@@ -296,6 +296,9 @@ class CompressorCovarianceUmat(BaseEstimator,TransformerMixin):
             return aa
 
     def scale_features_full(self,projected_unlinsoap,stride_size=None):
+        if stride_size is None:
+            stride_size = self.stride_size
+
         N = projected_unlinsoap.shape[0]
         bounds = self.get_bounds(N,stride_size)
         X_compressed = []
@@ -308,7 +311,8 @@ class CompressorCovarianceUmat(BaseEstimator,TransformerMixin):
             elif 'angular' in self.compression_type:
                 raise Exception('Not implemented')
 
-            kwargs = dict(optimize=False)
+            # kwargs = dict(optimize=False)
+            kwargs = dict(optimize='optimal')
             p = np.einsum(*args,**kwargs)
             if len(p.shape) == 6:
                 Nsoap,nspecies, nspecies, nmax, nmax, lmax1 = p.shape
