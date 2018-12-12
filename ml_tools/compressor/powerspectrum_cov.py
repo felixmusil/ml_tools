@@ -127,6 +127,12 @@ class CompressorCovarianceUmat(BaseEstimator,TransformerMixin):
             self.einsum_str = 'ij,nm,ajmopl->ainopl'
             self.scale_features_str = 'l,j,m,ajmopl->ajmopl'
             self.modify = identity
+        elif self.compression_type in ['species+radial']:
+            X_c = X.mean(axis=(4)).reshape((-1, nmax, nmax))
+            cov = X_c
+            self.einsum_str = 'ij,nm,ajmopl->ainopl'
+            self.scale_features_str = 'l,j,m,ajmopl->ajmopl'
+            self.modify = identity
         elif self.compression_type in ['radial']:
             cov = X.mean(axis=(4)).trace(axis1=0, axis2=1)
             self.einsum_str = 'ij,nm,aopjml->aopinl'
@@ -320,7 +326,7 @@ class CompressorCovarianceUmat(BaseEstimator,TransformerMixin):
                 axis = (1,2,3,4,5)
                 trans = True
             elif len(p.shape) == 4:
-                Nsoap,Ncomp , Ncomp , lmax1 = p.shape
+                Nsoap, Ncomp , Ncomp ,lmax1 = p.shape
                 shape1 = (Nsoap,1,1,1)
                 axis = (1,2,3)
                 trans = False
@@ -432,6 +438,7 @@ def get_compressed_soap(unlinsoap,u_mat,einsum_str,symmetric=False,lin_out=True,
     # projection
     p = np.einsum(einsum_str,u_mat,u_mat,unlinsoap,optimize='optimal')
     dtype = p.dtype
+    # TODO change
     if len(unlinsoap.shape) == 6:
         Nsoap,nspecies, nspecies, nmax, nmax, lmax1 = p.shape
         shape1 = (Nsoap,1,1,1,1,1)
