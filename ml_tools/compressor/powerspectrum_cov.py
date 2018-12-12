@@ -4,7 +4,7 @@ from scipy.sparse import lil_matrix,csr_matrix,issparse
 from ..utils import tqdm_cs,s2hms
 from time import time
 from ..math_utils import symmetrize,get_unlin_soap
-
+ 
 class CompressorCovarianceUmat(BaseEstimator,TransformerMixin):
     def __init__(self,soap_params=None,compression_type='species',dj=5,fj=None,stride_size=None,
                     symmetric=False,to_reshape=True,normalize=True,dtype='float64',full_opt=False):
