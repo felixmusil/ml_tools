@@ -92,15 +92,15 @@ class CompressorCovarianceUmat(BaseEstimator,TransformerMixin):
             factors_ = factors
 
         if self.full_opt is False:
-            self.set_diagonal_scaling_weights(factors_)
+            self._set_diagonal_scaling_weights(factors_)
         elif self.full_opt is True:
-            self.set_full_scaling_weights(factors_)
+            self._set_full_scaling_weights(factors_)
 
-    def set_diagonal_scaling_weights(self,x):
+    def _set_diagonal_scaling_weights(self,x):
         self.scaling_weights = x.flatten()
         self.compression_idx = len(self.scaling_weights)
 
-    def set_full_scaling_weights(self,u_mat):
+    def _set_full_scaling_weights(self,u_mat):
         self.compression_idx = int(np.sqrt(np.array(u_mat).size))
         self.scaling_weights = np.array(u_mat).reshape((self.compression_idx,self.compression_idx))
 
@@ -296,7 +296,7 @@ class CompressorCovarianceUmat(BaseEstimator,TransformerMixin):
         elif self.full_opt is True:
             scale_features_str = self.scale_features_full_str
 
-        return self.scale_features_impl(projected_unlinsoap_,scale_features_str,stride_size)
+        return self._scale_features_impl(projected_unlinsoap_,scale_features_str,stride_size)
 
     def get_bounds(self,N,stride_size=None):
         if stride_size is None:
@@ -307,7 +307,7 @@ class CompressorCovarianceUmat(BaseEstimator,TransformerMixin):
             bounds[-1][-1] += N % stride_size
         return bounds
 
-    def scale_features_impl(self,projected_unlinsoap,scale_features_str,stride_size=None):
+    def _scale_features_impl(self,projected_unlinsoap,scale_features_str,stride_size=None):
         if stride_size is None:
             stride_size = self.stride_size
 
