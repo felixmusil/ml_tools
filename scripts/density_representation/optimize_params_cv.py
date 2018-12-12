@@ -135,7 +135,7 @@ def sor_fj_loss(x_opt,data,y,cv,jitter,disable_pbar=True,leave=False,kernel=None
         Lambda = opt_reg
         scaling_factors = x_opt
     compressor.to_reshape = False
-    compressor.set_scaling_factors(scaling_factors)
+    compressor.set_scaling_weights(scaling_factors)
 
     unlinsoaps = data[0]
     unlinsoaps_active = data[1]
@@ -258,7 +258,7 @@ if __name__ == '__main__':
         compressor.unpack(state)
         compressor.to_reshape = True
         compressor.symmetric = False
-        compressor.set_scaling_factors(x_init[1:])
+        compressor.set_scaling_weights(x_init[1:])
     else:
         compressor_fn = None
     #############################################

@@ -55,7 +55,7 @@ class CompressorCovarianceUmat(BaseEstimator,TransformerMixin):
         else:
             self.modify = identity
 
-    def set_scaling_factors(self,factors):
+    def set_scaling_weights(self,factors):
         if self.full_opt is False:
             self.set_fj(factors)
         elif self.full_opt is True:
