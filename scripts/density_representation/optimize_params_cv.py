@@ -90,7 +90,7 @@ def soap_cov_loss(x_opt,rawsoaps,y,cv,jitter,disable_pbar=True,leave=False,compr
     Lambda = x_opt[0]
     fj = x_opt[1:]
 
-    compressor.set_fj(fj)
+    compressor.set_scaling_weights(fj)
 
     X = compressor.transform(rawsoaps)
     X_pseudo = X[active_ids]
