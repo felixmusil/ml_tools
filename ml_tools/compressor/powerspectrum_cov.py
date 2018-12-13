@@ -16,7 +16,8 @@ class CompressorCovarianceUmat(BaseEstimator,TransformerMixin):
         self.normalize = normalize
         self.dtype = dtype
         self.stride_size = stride_size
-
+        self.optimize_feature = optimize_feature
+        
         if 'angular+' in self.compression_type or 'species+' in self.compression_type:
             self.is_relative_scaling = True
         else:
