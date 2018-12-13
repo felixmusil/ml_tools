@@ -16,8 +16,7 @@ class CompressorCovarianceUmat(BaseEstimator,TransformerMixin):
         self.normalize = normalize
         self.dtype = dtype
         self.stride_size = stride_size
-        self.optimize_feature = optimize_feature
-        
+
         if 'angular+' in self.compression_type or 'species+' in self.compression_type:
             self.is_relative_scaling = True
         else:
@@ -55,7 +54,6 @@ class CompressorCovarianceUmat(BaseEstimator,TransformerMixin):
             params['full_opt'] = self.full_opt
             params['scale_features_full_str'] = self.scale_features_full_str
             params['projection_str'] = self.projection_str
-
         return params
 
     def set_params(self,params,full_state=False):
@@ -71,13 +69,13 @@ class CompressorCovarianceUmat(BaseEstimator,TransformerMixin):
 
 
         if full_state is True:
-            self.scale_relative_features_str = params['scale_relative_features_str']
+            self.scale_relative_features_str = str(params['scale_relative_features_str'])
             self.feature_scaling = params['feature_scaling']
-            self.scale_features_full_str = params['scale_features_full_str']
+            self.scale_features_full_str = str(params['scale_features_full_str'])
             self.relative_scaling_weights = params['relative_scaling_weights']
-            self.scale_features_diag_str = params['scale_features_diag_str']
+            self.scale_features_diag_str = str(params['scale_features_diag_str'])
             self.full_opt = params['full_opt']
-            self.projection_str = params['projection_str']
+            self.projection_str = str(params['projection_str'])
 
         nspecies = len(self.soap_params['global_species'])
         lmax1 = self.soap_params['lmax'] + 1
@@ -303,10 +301,11 @@ class CompressorCovarianceUmat(BaseEstimator,TransformerMixin):
             args += [self.relative_scaling_weights, X_c]
 
             kwargs = dict(optimize='optimal')
+
             p = np.einsum(*args,**kwargs)
 
             Nsoap = p.shape[0]
-            X_compressed.append(p.reshape((Nsoap,-1)))
+            X_compressed.append(p)
 
         if stride_size is None:
             return X_compressed[0]
@@ -467,6 +466,7 @@ def transform_feature_matrix(p, symmetric=False, normalize=True, lin_out=True):
     dtype = p.dtype
     Ndim = len(p.shape)
 
+    pre_reshape = False
     if Ndim == 6:
         Nsoap,nspecies, nspecies, nmax, nmax, lmax1 = p.shape
         shape1 = (Nsoap,1,1,1,1,1)
@@ -478,8 +478,8 @@ def transform_feature_matrix(p, symmetric=False, normalize=True, lin_out=True):
     elif Ndim == 5:
         Nsoap, nspecies2, nmax, nmax, lmax1 = p.shape
         nspecies = int(np.sqrt(nspecies2))
-        p = p.reshape((Nsoap, nspecies, nspecies, nmax, nmax, lmax1))
-        shape1 = (Nsoap,1,1,1,1,1)
+        pre_reshape = True
+        shape1 = (Nsoap,1,1,1,1)
         trans = True
 
     if normalize is True:
@@ -487,6 +487,8 @@ def transform_feature_matrix(p, symmetric=False, normalize=True, lin_out=True):
         p /=  pn
 
     if symmetric is True:
+        if pre_reshape is True:
+            p = p.reshape((Nsoap, nspecies, nspecies, nmax, nmax, lmax1))
         p = p.transpose(0,1,3,2,4,5).reshape(Nsoap,nspecies*nmax, nspecies*nmax, lmax1) if trans is True else p
         p = symmetrize(p,dtype)
 

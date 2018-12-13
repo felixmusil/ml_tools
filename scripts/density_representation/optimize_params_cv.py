@@ -254,7 +254,7 @@ if __name__ == '__main__':
         compressor_fn = in_args.compressor
         print('Load compressor from: {}'.format(compressor_fn))
         compressor = CompressorCovarianceUmat()
-        state = load_pck(compressor_fn)
+        state = load_json(compressor_fn)
         compressor.unpack(state)
         compressor.to_reshape = True
         compressor.symmetric = False
