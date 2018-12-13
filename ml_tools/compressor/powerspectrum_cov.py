@@ -38,20 +38,26 @@ class CompressorCovarianceUmat(BaseEstimator,TransformerMixin):
         # number of elements to keep
         self.compression_idx = compression_idx
 
-    def get_params(self,deep=True):
+    def get_params(self,full_state=False,deep=True):
         params = dict(compression_idx=self.compression_idx,compression_type=self.compression_type,
                       soap_params=self.soap_params,scaling_weights=self.scaling_weights,
-                      feature_scaling=self.feature_scaling,
-                      relative_scaling_weights=self.relative_scaling_weights,
+                      optimize_feature=self.optimize_feature,
                       dtype=self.dtype,stride_size=self.stride_size,
-                      scale_features_diag_str=self.scale_features_diag_str,
-                      full_opt=self.full_opt,
-                      scale_features_full_str=self.scale_features_full_str,
                       symmetric=self.symmetric,to_reshape=self.to_reshape,
-                      projection_str=self.projection_str,normalize=self.normalize)
+                      normalize=self.normalize)
+
+        if full_state is True:
+            params['scale_relative_features_str'] = self.scale_relative_features_str
+            params['feature_scaling'] = self.feature_scaling
+            params['relative_scaling_weights'] = self.relative_scaling_weights
+            params['scale_features_diag_str'] = self.scale_features_diag_str
+            params['full_opt'] = self.full_opt
+            params['scale_features_full_str'] = self.scale_features_full_str
+            params['projection_str'] = self.projection_str
+
         return params
 
-    def set_params(self,params):
+    def set_params(self,params,full_state=False):
         self.compression_idx = params['compression_idx']
         self.compression_type = params['compression_type']
         self.soap_params = params['soap_params']
@@ -59,13 +65,18 @@ class CompressorCovarianceUmat(BaseEstimator,TransformerMixin):
         self.dtype = params['dtype']
         self.symmetric = params['symmetric']
         self.to_reshape = params['to_reshape']
-        self.projection_str = params['projection_str']
         self.normalize = params['normalize']
-        self.scale_features_diag_str = params['scale_features_diag_str']
         self.stride_size = params['stride_size']
-        self.full_opt = params['full_opt']
-        self.scale_features_full_str = params['scale_features_full_str']
-        self.relative_scaling_weights = params['relative_scaling_weights']
+
+
+        if full_state is True:
+            self.scale_relative_features_str = params['scale_relative_features_str']
+            self.feature_scaling = params['feature_scaling']
+            self.scale_features_full_str = params['scale_features_full_str']
+            self.relative_scaling_weights = params['relative_scaling_weights']
+            self.scale_features_diag_str = params['scale_features_diag_str']
+            self.full_opt = params['full_opt']
+            self.projection_str = params['projection_str']
 
         nspecies = len(self.soap_params['global_species'])
         lmax1 = self.soap_params['lmax'] + 1
@@ -78,7 +89,7 @@ class CompressorCovarianceUmat(BaseEstimator,TransformerMixin):
             self.is_relative_scaling = True
         else:
             self.is_relative_scaling = False
-            
+
         if 'species*radial' in self.compression_type:
             self.modify = reshape
         elif 'species+radial' in self.compression_type:
@@ -366,7 +377,7 @@ class CompressorCovarianceUmat(BaseEstimator,TransformerMixin):
         return self.fit(X).transform(X)
 
     def pack(self):
-        params = self.get_params()
+        params = self.get_params(full_state=True)
         data = dict(u_mat_full=self.u_mat_full.tolist(),
                     eig=self.eig.tolist())
         state = dict(data=data,
@@ -374,7 +385,7 @@ class CompressorCovarianceUmat(BaseEstimator,TransformerMixin):
         return state
 
     def unpack(self,state):
-        self.set_params(state['params'])
+        self.set_params(state['params'],full_state=True)
         self.u_mat_full = np.array(state['data']['u_mat_full'])
         self.eig = np.array(state['data']['eig'])
 
