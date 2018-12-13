@@ -8,8 +8,7 @@ from ..math_utils import symmetrize,get_unlin_soap
 class CompressorCovarianceUmat(BaseEstimator,TransformerMixin):
     def __init__(self,soap_params=None,compression_type='species',compression_idx=5,scaling_weights=None,stride_size=None,
                     symmetric=False,to_reshape=True,normalize=True,dtype='float64',optimize_feature=False):
-        # number of elements to keep
-        self.compression_idx = compression_idx
+
         self.compression_type = compression_type
         self.soap_params = soap_params
         self.symmetric = symmetric
@@ -35,6 +34,9 @@ class CompressorCovarianceUmat(BaseEstimator,TransformerMixin):
             self.full_opt = False
 
         self.set_scaling_weights(scaling_weights)
+
+        # number of elements to keep
+        self.compression_idx = compression_idx
 
     def get_params(self,deep=True):
         params = dict(compression_idx=self.compression_idx,compression_type=self.compression_type,
@@ -80,16 +82,22 @@ class CompressorCovarianceUmat(BaseEstimator,TransformerMixin):
             self.modify = identity
 
     def set_scaling_weights(self,factors):
-        factors = np.array(factors, self.dtype)
 
-        if 'angular+' in self.compression_type:
-            self.relative_scaling_weights = factors[:int(self.soap_params['lmax']+1)]
-            factors_ = factors[int(self.soap_params['lmax']+1):]
-        elif 'species+' in self.compression_type:
-            self.relative_scaling_weights = factors[:int(self.soap_params['global_species']**2)]
-            factors_ = factors[int(self.soap_params['global_species']**2):]
+        if factors is None:
+            self.relative_scaling_weights = None
+            factors_ = None
         else:
-            factors_ = factors
+            factors = np.array(factors, self.dtype)
+            if 'angular+' in self.compression_type:
+                self.relative_scaling_weights = factors[:int(self.soap_params['lmax']+1)]
+                factors_ = factors[int(self.soap_params['lmax']+1):]
+            elif 'species+' in self.compression_type:
+                Nsp = len(self.soap_params['global_species'])
+                self.relative_scaling_weights = factors[:int(Nsp**2)]
+                factors_ = factors[int(Nsp**2):]
+            else:
+                self.relative_scaling_weights = None
+                factors_ = factors
 
         if self.full_opt is False:
             self._set_diagonal_scaling_weights(factors_)
@@ -97,12 +105,20 @@ class CompressorCovarianceUmat(BaseEstimator,TransformerMixin):
             self._set_full_scaling_weights(factors_)
 
     def _set_diagonal_scaling_weights(self,x):
-        self.scaling_weights = x.flatten()
-        self.compression_idx = len(self.scaling_weights)
+        if x is None:
+            self.scaling_weights = None
+            self.compression_idx = None
+        else:
+            self.scaling_weights = x.flatten()
+            self.compression_idx = len(self.scaling_weights)
 
     def _set_full_scaling_weights(self,u_mat):
-        self.compression_idx = int(np.sqrt(np.array(u_mat).size))
-        self.scaling_weights = np.array(u_mat).reshape((self.compression_idx,self.compression_idx))
+        if u_mat is None:
+            self.scaling_weights = None
+            self.compression_idx = None
+        else:
+            self.compression_idx = int(np.sqrt(np.array(u_mat).size))
+            self.scaling_weights = np.array(u_mat).reshape((self.compression_idx,self.compression_idx))
 
     def reshape_(self,X):
         unwrapped_X = get_unlin_soap(X,self.soap_params,
@@ -244,7 +260,6 @@ class CompressorCovarianceUmat(BaseEstimator,TransformerMixin):
             else:
                 u_mat = np.array(self.u_mat_full[:self.compression_idx,:],dtype=self.dtype)
 
-            print(u_mat.shape,X_c.shape)
             if compression_only is False:
                 X_compressed.append(get_compressed_soap(X_c,u_mat,self.projection_str,symmetric=False,
                                     lin_out=False,normalize=self.normalize))
