@@ -29,7 +29,7 @@ EXPECTED_INPUT = dict(
   lc_params=dict(n_repeats=[1],train_sizes=[1],test_size=10,random_state=10),
   prop_fn='',
   start_from_iter=0,
-  compressor=dict(fn='',fj=[]),
+  compressor=dict(fn='',scaling_weights=[]),
   out_fn=dict(scores='',results='')
 )
 
@@ -93,8 +93,8 @@ if __name__ == '__main__':
             print('Load compressor from: {}'.format(compressor_fn))
 
         compressor.unpack(state)
-        if 'fj' in inp['compressor']:
-            compressor.set_scaling_weights(inp['compressor']['fj'])
+        if 'scaling_weights' in inp['compressor']:
+            compressor.set_scaling_weights(inp['compressor']['scaling_weights'])
         compressor.to_reshape = True
     else:
         has_compressor = False
