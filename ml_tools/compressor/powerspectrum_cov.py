@@ -74,6 +74,11 @@ class CompressorCovarianceUmat(BaseEstimator,TransformerMixin):
         reshape = lambda x: x.transpose(0,1,3,2,4,5).reshape((-1,nspecies*nmax, nspecies*nmax,lmax1))
         reshape_1 = lambda x: x.reshape((-1,nspecies*nspecies, nmax,nmax,lmax1))
 
+        if 'angular+' in self.compression_type or 'species+' in self.compression_type:
+            self.is_relative_scaling = True
+        else:
+            self.is_relative_scaling = False
+            
         if 'species*radial' in self.compression_type:
             self.modify = reshape
         elif 'species+radial' in self.compression_type:
