@@ -89,7 +89,7 @@ if __name__ == '__main__':
             print('Load compressor from: {}'.format(rawsoaps_fn))
         else:
             compressor_fn = inp['compressor']['fn']
-            state = load_pck(compressor_fn)
+            state = load_json(compressor_fn)
             print('Load compressor from: {}'.format(compressor_fn))
 
         compressor.unpack(state)
