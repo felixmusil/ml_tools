@@ -269,7 +269,7 @@ if __name__ == '__main__':
         cv = KFold(n_splits=Nfold,random_state=10,shuffle=True)
 
     if 'strides' in params:
-        kernel = KernelSum(KernelPower(**kernel_params),chunk_shape=[200,200])
+        kernel = KernelSum(KernelPower(**kernel_params),chunk_shape=[500,500])
         strides = params['strides']
         has_sum_kernel = True
         stride_size = 1000
