@@ -89,7 +89,7 @@ def get_average_square(kernel,env_kernel,ids_n):
                     kernel[it,jt] += env_kernel[ii,jj]
             kernel[it,jt] /= (ind-ist)*(jnd-jst)
 
- 
+
 @njit([void(float64[:,:], float64[:,:],int32[:],int32[:]),
         void(float32[:,:], float32[:,:],int32[:],int32[:])],parallel=True)
 def get_average_rectangular(kernel,env_kernel,ids_n,ids_m):
@@ -176,8 +176,8 @@ def get_unlin_soap(rawsoap,params,global_species,dtype=np.float64):
 
     return p
 
-@njit([void(float64[:,:], float64[:,:,:,:,:,:],int32[:,:],int32[:,:,:],float64[:],int32,int32,int32,int32),
-       void(float32[:,:], float32[:,:,:,:,:,:],int32[:,:],int32[:,:,:],float64[:],int32,int32,int32,int32)],parallel=True)
+
+@njit(parallel=True)
 def opt_0(rawsoap,p,rs_index,fac,ff,Nframe,nmax,nspecies,lmax):
     for iframe in prange(Nframe):
         for i in prange(nmax*nspecies):

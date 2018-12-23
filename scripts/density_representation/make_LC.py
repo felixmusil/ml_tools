@@ -16,7 +16,7 @@ from ml_tools.compressor import CompressorCovarianceUmat
 from ml_tools.descriptors import RawSoapQUIP
 import pandas as pd
 from ase.io import read
- 
+
 
 EXPECTED_INPUT = dict(
   soap_params=dict(),
@@ -29,6 +29,7 @@ EXPECTED_INPUT = dict(
   lc_params=dict(n_repeats=[1],train_sizes=[1],test_size=10,random_state=10),
   prop_fn='',
   start_from_iter=0,
+  dtype='',
   compressor=dict(fn='',scaling_weights=[]),
   out_fn=dict(scores='',results='')
 )
@@ -46,7 +47,15 @@ if __name__ == '__main__':
     results_fn = os.path.abspath(inp['out_fn']['results'])
     # inp['']
     prop_fn = os.path.abspath(inp['prop_fn'])
-    y = np.load(prop_fn)
+
+
+    if 'dtype' in inp:
+        dtype = inp['dtype']
+    else:
+        dtype = 'float64'
+
+    y = np.asarray((np.load(prop_fn)),dtype=dtype)
+
     if 'start_from_iter' in inp:
         start_from_iter = inp['start_from_iter']
     else:
@@ -93,6 +102,9 @@ if __name__ == '__main__':
             print('Load compressor from: {}'.format(compressor_fn))
 
         compressor.unpack(state)
+
+        compressor.dtype = dtype
+
         if 'scaling_weights' in inp['compressor']:
             compressor.set_scaling_weights(inp['compressor']['scaling_weights'])
         compressor.to_reshape = True
@@ -143,7 +155,8 @@ if __name__ == '__main__':
         X = representation.transform(frames)
         Nsample = len(X)
     elif compute_rep is False and compute_kernel is True:
-        params,X = load_data(rawsoaps_fn,mmap_mode=None)
+        params,X = load_data(rawsoaps_fn)
+        X = np.asarray(X,dtype=dtype)
         Nsample = len(X)
 
     if is_SoR is True and compute_kernel is True:
