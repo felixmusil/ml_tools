@@ -1,63 +1,30 @@
+# -*- coding: utf-8 -*-
 from numba import njit,prange,void,float64,float32,int32,int64,vectorize,jit,config,threading_layer
 import math
 from ..base import np
 from autograd.extend import primitive,defvjp,defjvp
 from autograd.numpy.numpy_vjps import unbroadcast_f,replace_zero
 from numpy import zeros
-@primitive
+# PTL
+# @primitive
 @vectorize(["float64(float64, float64)","float64(float64, int32)",
             "float32(float32, float64)","float32(float32, int32)"],target='parallel')
 def power(x,zeta):
     return math.pow(x,zeta)
 
-defvjp(power,
-    lambda ans, x, y : unbroadcast_f(x, lambda g: g * y * power(x,np.where(y, y - 1, 1.))),
-    lambda ans, x, y : unbroadcast_f(y, lambda g: g * np.log(replace_zero(x, 1.)) * power(x,y))
-      )
+# PTL
+# defvjp(power,
+#     lambda ans, x, y : unbroadcast_f(x, lambda g: g * y * power(x,np.where(y, y - 1, 1.))),
+#     lambda ans, x, y : unbroadcast_f(y, lambda g: g * np.log(replace_zero(x, 1.)) * power(x,y))
+#       )
+# PTL
+# defjvp(power,
+#     lambda g, ans, x, y : g * y * power(x,y-1),
+#     lambda g, ans, x, y : g * np.log(replace_zero(x, 1.)) * power(x,y)
+#       )
 
-defjvp(power,
-    lambda g, ans, x, y : g * y * power(x,y-1),
-    lambda g, ans, x, y : g * np.log(replace_zero(x, 1.)) * power(x,y)
-      )
-
-
+# PTL
 # @primitive
-# def average_kernel(envKernel,Xstrides,Ystrides,is_square):
-#     N,M = len(Xstrides)-1,len(Ystrides)-1
-
-#     if is_square is False:
-#         ids = np.zeros((N*M,6),np.int32)
-#     elif is_square is True:
-#         ids = np.zeros((N*(N+1)/2,6),np.int32)
-#     print('a')
-#     iii = 0
-#     for ii,(ist,ind) in enumerate(zip(Xstrides[:-1],Xstrides[1:])):
-#         for jj,(jst,jnd) in enumerate(zip(Ystrides[:-1],Ystrides[1:])):
-#             if is_square is True:
-#                 # computes only lower triangular
-#                 if ii < jj: continue
-#             ids[iii,:] = np.asarray([ii,ist,ind,jj,jst,jnd],np.int32)
-#             iii += 1
-#     print('b')
-#     K = np.zeros((N,M),order='C')
-#     get_average(K,envKernel,ids)
-#     print('c')
-#     if is_square is True:
-#         K += np.tril(K,k=-1).T
-
-#     return K
-
-# @njit([void(float64[:,:], float64[:,:],int32[:,:]),
-#         void(float32[:,:], float32[:,:],int32[:,:])],parallel=True)
-# def get_average(kernel,env_kernel,ids):
-#     for it in prange(len(ids)):
-#         ii,sla_st,sla_nd,jj,slb_st,slb_nd = ids[it,:]
-#         for jt in prange(sla_st,sla_nd):
-#             for kt in prange(slb_st,slb_nd):
-#                 kernel[ii,jj] += env_kernel[jt,kt]
-#         kernel[ii,jj] /= (sla_nd-sla_st)*(slb_nd-slb_st)
-
-@primitive
 def average_kernel(envKernel,Xstrides,Ystrides,is_square):
     N,M = len(Xstrides)-1,len(Ystrides)-1
     K = np.zeros((N,M),order='C')
@@ -131,8 +98,8 @@ def grad_average_kernel_helper(g_repeated,g,ids):
             for kt in range(slb_st,slb_nd):
                 g_repeated[jt,kt] = g[I,J]/(aa*(slb_nd-slb_st))
 
-defvjp(average_kernel,grad_average_kernel,None,None)
-
+# PTL
+# defvjp(average_kernel,grad_average_kernel,None,None)
 
 
 def symmetrize(p,dtype=np.float64):

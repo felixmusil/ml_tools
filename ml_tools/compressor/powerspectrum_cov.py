@@ -1,9 +1,15 @@
-from ..base import np,sp
+# -*- coding: utf-8 -*-
+# from ..base import np,sp
+import numpy as np
+import scipy as sp
+
 from ..base import BaseEstimator,TransformerMixin
 from scipy.sparse import lil_matrix,csr_matrix,issparse
 from ..utils import tqdm_cs,s2hms
 from time import time
 from ..math_utils import symmetrize,get_unlin_soap
+import gc
+
 
 class CompressorCovarianceUmat(BaseEstimator,TransformerMixin):
     def __init__(self,soap_params=None,compression_type='species',compression_idx=5,scaling_weights=None,stride_size=None,
@@ -258,9 +264,10 @@ class CompressorCovarianceUmat(BaseEstimator,TransformerMixin):
 
         shape = [N] + list(self._get_compressed_soap(X[0:1],compression_only).shape[1:])
 
-        X_compressed = np.empty(shape,self.dtype)
+        X_compressed = np.ones(shape,self.dtype)
         for st,nd in tqdm_cs(bounds,desc='Umat Proj',leave=False):
             X_compressed[st:nd] = self._get_compressed_soap(X[st:nd],compression_only)
+            gc.collect()
 
         return X_compressed
 
@@ -275,30 +282,38 @@ class CompressorCovarianceUmat(BaseEstimator,TransformerMixin):
         else:
             X_c = self.modify(X_)
 
+        X_ = None
+        gc.collect()
+
         if self.is_relative_scaling is True:
             u_mat = np.array(self.u_mat_full[:,:self.compression_idx,:],dtype=self.dtype)
         else:
             u_mat = np.array(self.u_mat_full[:self.compression_idx,:],dtype=self.dtype)
 
         if compression_only is False:
-            return get_compressed_soap(X_c,u_mat,self.projection_str,symmetric=False,
+            X__ = get_compressed_soap(X_c,u_mat,self.projection_str,symmetric=False,
                                 lin_out=False,normalize=self.normalize)
         elif compression_only is True:
-            return get_compressed_soap(X_c,u_mat,self.projection_str,symmetric=True,
+            X__ = get_compressed_soap(X_c,u_mat,self.projection_str,symmetric=True,
                                 lin_out=True,normalize=self.normalize)
+        X_c = None
+        gc.collect()
+
+        return X__
 
     def scale_relative_feature(self, projected_unlinsoap, stride_size=None):
         if stride_size is None:
             stride_size = self.stride_size
 
         N = projected_unlinsoap.shape[0]
-        X_compressed = np.empty(projected_unlinsoap.shape,dtype=self.dtype)
+        X_compressed = np.ones(projected_unlinsoap.shape,dtype=self.dtype)
         bounds = self.get_bounds(N, stride_size)
         for st,nd in tqdm_cs(bounds,desc='Relative Feature Scaling',leave=False):
             args = [self.scale_relative_features_str]
             X_c = projected_unlinsoap[st:nd]
             args += [self.relative_scaling_weights, X_c]
             kwargs = dict(optimize='optimal')
+            kwargs = dict(optimize=False)
 
             p = np.einsum(*args,**kwargs)
 
@@ -310,19 +325,19 @@ class CompressorCovarianceUmat(BaseEstimator,TransformerMixin):
         if stride_size is None:
             stride_size = self.stride_size
 
-        if self.is_relative_scaling is True:
-            projected_unlinsoap_ = self.scale_relative_feature(projected_unlinsoap, stride_size)
-        else:
-            projected_unlinsoap_ = projected_unlinsoap
-
-        projected_unlinsoap = None
+        # if self.is_relative_scaling is True:
+        #     projected_unlinsoap_ = self.scale_relative_feature(projected_unlinsoap, stride_size)
+        # else:
+        #     projected_unlinsoap_ = projected_unlinsoap
+        # projected_unlinsoap = None
+        # gc.collect()
 
         if self.full_opt is False:
             scale_features_str = self.scale_features_diag_str
         elif self.full_opt is True:
             scale_features_str = self.scale_features_full_str
 
-        return self._scale_features_impl(projected_unlinsoap_,scale_features_str,stride_size)
+        return self._scale_features_impl(projected_unlinsoap,scale_features_str,stride_size)
 
     def get_bounds(self,N,stride_size=None):
         if stride_size is None:
@@ -338,16 +353,24 @@ class CompressorCovarianceUmat(BaseEstimator,TransformerMixin):
             stride_size = self.stride_size
 
         N = projected_unlinsoap.shape[0]
-        M = np.prod(projected_unlinsoap.shape[1:])
-        X_compressed = np.empty((N,M),dtype=self.dtype)
+        M = transform_feature_matrix(projected_unlinsoap[0:1], symmetric=self.symmetric,
+                                    normalize=self.normalize, lin_out=True).shape[1]
+
+        X_compressed = np.ones((N,M),dtype=self.dtype)
         bounds = self.get_bounds(N, stride_size)
+        kwargs = dict(optimize='optimal')
+        kwargs = dict(optimize=False)
         for st,nd in tqdm_cs(bounds,desc='Feature Scaling',leave=False):
-            args = [scale_features_str]
             X_c = projected_unlinsoap[st:nd]
 
+            if self.is_relative_scaling is True:
+                args = [self.scale_relative_features_str]
+                args += [self.relative_scaling_weights, X_c]
+                X_c = np.einsum(*args,**kwargs)
+
+            args = [scale_features_str]
             args += [self.scaling_weights,self.scaling_weights,X_c]
 
-            kwargs = dict(optimize='optimal')
             p = np.einsum(*args,**kwargs)
 
             p = transform_feature_matrix(p, symmetric=self.symmetric,
@@ -361,6 +384,7 @@ class CompressorCovarianceUmat(BaseEstimator,TransformerMixin):
         if self.feature_scaling is True:
             X_proj = self.project_on_u_mat(X,compression_only=False,stride_size=self.stride_size)
             X = None
+            gc.collect()
             X_proj = self.scale_features(X_proj)
         else:
             X_proj = self.project_on_u_mat(X,compression_only=True,stride_size=self.stride_size)
@@ -409,7 +433,7 @@ class AngularScaler(BaseEstimator,TransformerMixin):
         Nsample,nspecies, nspecies, nmax, nmax, lmax1 =  unwrapped_X.shape
 
         X_c = unwrapped_X.transpose(0,1,3,2,4,5).reshape((Nsample,nspecies*nmax, nspecies*nmax,lmax1))
-
+        unwrapped_X = None
         return symmetrize(X_c)
 
     def fit(self,X=None):
@@ -420,6 +444,7 @@ class AngularScaler(BaseEstimator,TransformerMixin):
             X_c = self.reshape_(X)
         else:
             X_c = X
+
         Nsoap,_,_ = X_c.shape
         aa = np.einsum("ijk,k->ijk",X_c,self.fj,optimize='optimal').reshape((Nsoap,-1))
         #aa = np.tensordot(X_c,np.diag(self.fj),axes=(2,0))
@@ -450,7 +475,8 @@ def get_compressed_soap(unlinsoap,u_mat,projection_str,symmetric=False,lin_out=T
     '''
 
     # projection
-    p = np.einsum(projection_str,u_mat,u_mat,unlinsoap,optimize='optimal')
+    # p = np.einsum(projection_str,u_mat,u_mat,unlinsoap,optimize='optimal')
+    p = np.einsum(projection_str,u_mat,u_mat,unlinsoap,optimize=False)
 
     p = transform_feature_matrix(p, symmetric=symmetric, normalize=normalize, lin_out=lin_out)
 
@@ -466,7 +492,7 @@ def transform_feature_matrix(p, symmetric=False, normalize=True, lin_out=True):
         shape1 = (Nsoap,1,1,1,1,1)
         trans = True
     elif Ndim == 4:
-        Nsoap,Ncomp , Ncomp , lmax1 = p.shape
+        Nsoap, Ncomp , Ncomp , lmax1 = p.shape
         shape1 = (Nsoap,1,1,1)
         trans = False
     elif Ndim == 5:
@@ -479,14 +505,19 @@ def transform_feature_matrix(p, symmetric=False, normalize=True, lin_out=True):
     if normalize is True:
         pn = np.linalg.norm(p.reshape((Nsoap,-1)),axis=1).reshape(shape1)
         p /=  pn
+    gc.collect()
 
     if symmetric is True:
         if pre_reshape is True:
             p = p.reshape((Nsoap, nspecies, nspecies, nmax, nmax, lmax1))
+            gc.collect()
         p = p.transpose(0,1,3,2,4,5).reshape(Nsoap,nspecies*nmax, nspecies*nmax, lmax1) if trans is True else p
+        gc.collect()
         p = symmetrize(p,dtype)
+        gc.collect()
 
     if lin_out:
-        return p.reshape((Nsoap,-1))
-    else:
-        return p
+        p = p.reshape((Nsoap,-1))
+        gc.collect()
+
+    return p

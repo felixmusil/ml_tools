@@ -1,12 +1,15 @@
+# -*- coding: utf-8 -*-
 import argparse
 import time
 
 import sys,os
 sys.path.insert(0,'/home/musil/git/ml_tools/')
 
-from autograd import grad
-
-from ml_tools.base import np,sp
+# PTL
+# from autograd import grad
+# from ml_tools.base import np,sp
+import numpy as np
+import scipy as sp
 
 from ml_tools.utils import load_data,tqdm_cs,get_score,dump_json,load_json,dump_pck,load_pck
 from ml_tools.models import KRR,TrainerCholesky
@@ -47,7 +50,6 @@ if __name__ == '__main__':
     results_fn = os.path.abspath(inp['out_fn']['results'])
     # inp['']
     prop_fn = os.path.abspath(inp['prop_fn'])
-
 
     if 'dtype' in inp:
         dtype = inp['dtype']
@@ -156,7 +158,7 @@ if __name__ == '__main__':
         Nsample = len(X)
     elif compute_rep is False and compute_kernel is True:
         params,X = load_data(rawsoaps_fn)
-        X = np.asarray(X,dtype=dtype)
+        # X = np.asarray(X,dtype=dtype)
         Nsample = len(X)
 
     if is_SoR is True and compute_kernel is True:
