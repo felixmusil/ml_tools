@@ -15,6 +15,9 @@ from ml_tools.split import EnvironmentalKFold,KFold
 from ml_tools.compressor import CompressorCovarianceUmat
 
 
+#SBATCH --time 01:00:00
+#SBATCH -p debug
+
 def get_sp_mapping(frames,sp):
     ii = 0
     fid2gids = {it:[] for it in range(len(frames))}
@@ -127,18 +130,16 @@ def soap_cov_loss(x_opt,rawsoaps,y,cv,jitter,disable_pbar=True,leave=False,compr
 
 def sor_fj_loss(x_opt,data,y,cv,jitter,disable_pbar=True,leave=False,kernel=None,
                 compressor=None,strides=None,active_strides=None,stride_size=None,return_score=False):
-    opt_reg = True
-    if opt_reg is True:
-        Lambda = x_opt[0]
-        scaling_factors = x_opt[1:]
-    else:
-        Lambda = opt_reg
-        scaling_factors = x_opt
+
+    Lambda = x_opt[0]
+    scaling_factors = x_opt[1:]
+
     compressor.to_reshape = False
     compressor.set_scaling_weights(scaling_factors)
 
     unlinsoaps = data[0]
     unlinsoaps_active = data[1]
+
     X = compressor.scale_features(unlinsoaps,stride_size)
     X_active = compressor.scale_features(unlinsoaps_active,stride_size)
     # X = compressor.transform(unlinsoaps)

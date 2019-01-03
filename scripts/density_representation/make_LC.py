@@ -5,11 +5,11 @@ import time
 import sys,os
 sys.path.insert(0,'/home/musil/git/ml_tools/')
 
-# PTL
+
 # from autograd import grad
-# from ml_tools.base import np,sp
-import numpy as np
-import scipy as sp
+from ml_tools.base import np,sp
+# import numpy as np
+# import scipy as sp
 
 from ml_tools.utils import load_data,tqdm_cs,get_score,dump_json,load_json,dump_pck,load_pck
 from ml_tools.models import KRR,TrainerCholesky
