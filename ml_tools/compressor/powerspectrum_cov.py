@@ -272,9 +272,9 @@ class CompressorCovarianceUmat(BaseEstimator,TransformerMixin):
             X_c = X.mean(axis=(4)).reshape((-1, nmax, nmax))
             cov = X_c
             self.projection_str = 'oij,onm,aojml->aoinl'
-            self.scale_features_diag_str = 'j,m,aojml->aojml'
-            self.scale_features_full_str = 'ij,nm,aojml->aoinl'
-            self.scale_relative_features_str = 'o,aojml->aojml'
+            self.scale_features_diag_str = 'j,m,paojml->paojml'
+            self.scale_features_full_str = 'ij,nm,paojml->paoinl'
+            self.scale_relative_features_str = 'a,o,paojml->paojml'
             self.modify = reshape_1
         elif self.compression_type in ['radial']:
             cov = X.mean(axis=(4)).trace(axis1=0, axis2=1) / nspecies
@@ -348,6 +348,11 @@ class CompressorCovarianceUmat(BaseEstimator,TransformerMixin):
 
         X_c = np.einsum(self.projection_str,u_mat,u_mat,unlinsoap,**kwargs)
         # X_c = get_compressed_soap(X,u_mat,self.projection_str)
+
+        if self.compression_type in ['species+radial']:
+            Nsoap, Nsp2, nmax, nmax, lmax1 = X_c.shape
+            nspecies = int(np.sqrt(Nsp2))
+            X_c = X_c.reshape((Nsoap, nspecies, nspecies, nmax, nmax, lmax1))
 
         return X_c
 
@@ -481,7 +486,6 @@ def transform_feature_matrix(p, symmetric=False, normalize=True, lin_out=True):
     dtype = p.dtype
     Ndim = len(p.shape)
 
-    pre_reshape = False
     if Ndim == 6:
         Nsoap,nspecies, nspecies, nmax, nmax, lmax1 = p.shape
         shape1 = (Nsoap,1,1,1,1,1)
@@ -490,20 +494,12 @@ def transform_feature_matrix(p, symmetric=False, normalize=True, lin_out=True):
         Nsoap, Ncomp , Ncomp , lmax1 = p.shape
         shape1 = (Nsoap,1,1,1)
         trans = False
-    elif Ndim == 5:
-        Nsoap, nspecies2, nmax, nmax, lmax1 = p.shape
-        nspecies = int(np.sqrt(nspecies2))
-        pre_reshape = True
-        shape1 = (Nsoap,1,1,1,1)
-        trans = True
 
     if normalize is True:
         pn = np.linalg.norm(p.reshape((Nsoap,-1)),axis=1).reshape(shape1)
         p /=  pn
 
     if symmetric is True:
-        if pre_reshape is True:
-            p = p.reshape((Nsoap, nspecies, nspecies, nmax, nmax, lmax1))
         p = p.transpose(0,1,3,2,4,5).reshape(Nsoap,nspecies*nmax, nspecies*nmax, lmax1) if trans is True else p
         p = symmetrize(p,dtype)
 
