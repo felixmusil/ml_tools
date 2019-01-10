@@ -273,7 +273,7 @@ class CompressorCovarianceUmat(BaseEstimator,TransformerMixin):
             self.projection_str = 'oij,onm,aojml->aoinl'
             self.scale_features_diag_str = 'j,m,aojml->aojml'
             self.scale_features_full_str = 'ij,nm,aojml->aoinl'
-            self.scale_relative_features_str = 'o,aojml->aojml'
+            self.scale_relative_features_str = 'a,o,aojml->aojml'
             self.modify = reshape_1
         elif self.compression_type in ['radial']:
             cov = X.mean(axis=(4)).trace(axis1=0, axis2=1)
@@ -384,7 +384,12 @@ class CompressorCovarianceUmat(BaseEstimator,TransformerMixin):
 
         if self.is_relative_scaling is True:
             args = [self.scale_relative_features_str]
-            args += [self.relative_scaling_weights, rawsoap_unlin]
+            
+            if self.compression_type in ['species+radial']:
+                args += [self.relative_scaling_weights, self.relative_scaling_weights, rawsoap_unlin]
+            else:
+                args += [self.relative_scaling_weights, rawsoap_unlin]
+
             X_c = np.einsum(*args,**kwargs)
             return X_c
         else:
