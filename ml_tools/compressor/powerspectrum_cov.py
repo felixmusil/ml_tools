@@ -253,7 +253,7 @@ class CompressorCovarianceUmat(BaseEstimator,TransformerMixin):
         reshape = lambda x: x.transpose(0,1,3,2,4,5).reshape((-1,nspecies*nmax, nspecies*nmax,lmax1))
         reshape_1 = lambda x: x.reshape((-1,nspecies*nspecies, nmax,nmax,lmax1))
         if self.compression_type in ['species']:
-            cov = X.mean(axis=(4)).trace(axis1=2, axis2=3)
+            cov = X.mean(axis=(4)).trace(axis1=2, axis2=3) / nmax
             self.projection_str = 'ij,nm,ajmopl->ainopl'
             self.scale_features_diag_str = 'j,m,ajmopl->ajmopl'
             self.scale_features_full_str = self.projection_str
@@ -261,7 +261,7 @@ class CompressorCovarianceUmat(BaseEstimator,TransformerMixin):
             self.modify = identity
         elif self.compression_type in ['angular+species']:
             X_c = X.transpose(4,0,1,2,3)
-            cov = X_c.trace(axis1=3, axis2=4)
+            cov = X_c.trace(axis1=3, axis2=4) / nmax
             self.projection_str = 'lij,lnm,ajmopl->ainopl'
             self.scale_features_diag_str = 'j,m,ajmopl->ajmopl'
             self.scale_features_full_str = 'ij,nm,ajmopl->ainopl'
@@ -276,7 +276,7 @@ class CompressorCovarianceUmat(BaseEstimator,TransformerMixin):
             self.scale_relative_features_str = 'a,o,aojml->aojml'
             self.modify = reshape_1
         elif self.compression_type in ['radial']:
-            cov = X.mean(axis=(4)).trace(axis1=0, axis2=1)
+            cov = X.mean(axis=(4)).trace(axis1=0, axis2=1) / nspecies
             self.projection_str = 'ij,nm,aopjml->aopinl'
             self.scale_features_diag_str = 'j,m,aopjml->aopjml'
             self.scale_features_full_str = 'ij,nm,aopjml->aopinl'
@@ -284,7 +284,7 @@ class CompressorCovarianceUmat(BaseEstimator,TransformerMixin):
             self.modify = identity
         elif self.compression_type in ['angular+radial']:
             X_c = X.transpose(4,0,1,2,3)
-            cov = X_c.trace(axis1=1, axis2=2)
+            cov = X_c.trace(axis1=1, axis2=2) / nspecies
             self.projection_str = 'lij,lnm,aopjml->aopinl'
             self.scale_features_diag_str = 'j,m,aopjml->aopjml'
             self.scale_features_full_str = 'ij,nm,aopjml->aopinl'
@@ -384,7 +384,7 @@ class CompressorCovarianceUmat(BaseEstimator,TransformerMixin):
 
         if self.is_relative_scaling is True:
             args = [self.scale_relative_features_str]
-            
+
             if self.compression_type in ['species+radial']:
                 args += [self.relative_scaling_weights, self.relative_scaling_weights, rawsoap_unlin]
             else:
