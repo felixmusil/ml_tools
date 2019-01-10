@@ -28,6 +28,7 @@ class CompressorCovarianceUmat(BaseEstimator,TransformerMixin):
         else:
             self.is_relative_scaling = False
 
+        self.optimize_feature = optimize_feature
         if optimize_feature is False:
             self.scaling_weights = None
             self.feature_scaling = False
@@ -72,7 +73,7 @@ class CompressorCovarianceUmat(BaseEstimator,TransformerMixin):
         self.to_reshape = params['to_reshape']
         self.normalize = params['normalize']
         self.stride_size = params['stride_size']
-
+        self.optimize_feature = params['optimize_feature']
 
         if full_state is True:
             self.scale_relative_features_str = str(params['scale_relative_features_str'])
@@ -240,7 +241,7 @@ class CompressorCovarianceUmat(BaseEstimator,TransformerMixin):
 
         X_c = rawsoaps.mean(axis=0).reshape((1,-1))
 
-        X_c = self._prepare_input(X_c)
+        X_c = self._prepare_input(X_c,to_modify=False)
 
         X = np.squeeze(X_c)
 
@@ -273,7 +274,7 @@ class CompressorCovarianceUmat(BaseEstimator,TransformerMixin):
             self.projection_str = 'oij,onm,aojml->aoinl'
             self.scale_features_diag_str = 'j,m,aojml->aojml'
             self.scale_features_full_str = 'ij,nm,aojml->aoinl'
-            self.scale_relative_features_str = 'a,o,aojml->aojml'
+            self.scale_relative_features_str = 'o,aojml->aojml'
             self.modify = reshape_1
         elif self.compression_type in ['radial']:
             cov = X.mean(axis=(4)).trace(axis1=0, axis2=1) / nspecies
@@ -350,18 +351,17 @@ class CompressorCovarianceUmat(BaseEstimator,TransformerMixin):
 
         return X_c
 
-    def _prepare_input(self,X,to_reshape=None):
-        if to_reshape is None:
-            to_reshape = self.to_reshape
+    def _prepare_input(self,X,to_modify=True):
 
         if issparse(X) is True:
             X_c = np.asarray(X.toarray(),dtype=self.dtype)
         else:
             X_c = np.asarray(X,dtype=self.dtype)
 
-        if to_reshape is True:
-            X_c = self.modify(self.reshape_(X_c))
-        else:
+        if self.to_reshape is True:
+            X_c = self.reshape_(X_c)
+
+        if to_modify is True:
             X_c = self.modify(X_c)
 
         return X_c
