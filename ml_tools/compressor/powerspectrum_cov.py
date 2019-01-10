@@ -119,7 +119,7 @@ class CompressorCovarianceUmat(BaseEstimator,TransformerMixin):
         if factors is None:
             self.relative_scaling_weights = None
             self.scaling_weights = None
-            factors_ = None
+            factors__ = None
         else:
 
             factors_ = np.array(factors, self.dtype)
@@ -129,8 +129,8 @@ class CompressorCovarianceUmat(BaseEstimator,TransformerMixin):
                 factors__ = factors_[int(self.soap_params['lmax']+1):]
             elif 'species+' in self.compression_type:
                 Nsp = len(self.soap_params['global_species'])
-                self.relative_scaling_weights = factors_[:int(Nsp**2)]
-                factors__ = factors_[int(Nsp**2):]
+                self.relative_scaling_weights = factors_[:Nsp]
+                factors__ = factors_[Nsp:]
             else:
                 self.relative_scaling_weights = None
                 factors__ = factors_
