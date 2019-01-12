@@ -223,6 +223,7 @@ if __name__ == '__main__':
     parser.add_argument("--compressor", type=str,default='', help="Name of the json file containing the trained compressor data.")
     parser.add_argument("--ftol", type=float,default=1e-6, help="Relative tolerance for the optimization to exit: (f^k - f^{k+1})/max{|f^k|,|f^{k+1}|,1} <= ftol ")
     parser.add_argument("--maxiter", type=int,default=300, help="Max Number of optimization steps")
+    parser.add_argument("--sparse", action='store_true', help="if the feature matrix is stored in scipy sparse format")
 
     parser.add_argument("--prop", type=str, help="Path to the corresponding properties")
     parser.add_argument("--out", type=str, help="Path to the corresponding output")
@@ -243,7 +244,7 @@ if __name__ == '__main__':
 
     rawsoaps_fn = os.path.abspath(in_args.X)
     print('Load data from: {}'.format(rawsoaps_fn))
-    params,X = load_data(rawsoaps_fn,mmap_mode=None)
+    params,X = load_data(rawsoaps_fn,mmap_mode=None, is_sparse=in_args.sparse)
 
     soap_params = params['soap_params']
     kernel_params = params['kernel_params']
