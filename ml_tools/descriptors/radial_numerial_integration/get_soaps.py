@@ -1,10 +1,10 @@
-#!/usr/bin/python2 -u
+
 
 import argparse
 import numpy as np
 import env_reader as er
 from ge import gaussian_expansion as ge
-from ase.io import read 
+from ase.io import read
 
 ##########################################################################################
 
@@ -48,7 +48,7 @@ def main(suffix, fxyz, rc, species, nmax, lmax, awidth, nframes, centres):
   gsoaps = get_soaps(centres, species, nmax, lmax, rc, gdens)
   soaps = gsoaps(frames)
   np.save('p'+suffix+'.npy', soaps)
-  
+
 ##########################################################################################
 ##########################################################################################
 

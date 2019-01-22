@@ -1,11 +1,10 @@
-#!/usr/bin/python2
 
 import numpy as np
-from ase.io import read 
+from ase.io import read
 from ase.geometry import find_mic
 from ge import gaussian_expansion as ge
 
-########################################################################################## 
+##########################################################################################
 
 def cutoff(r, rcut):
   ctwidth = 0.5
@@ -14,7 +13,7 @@ def cutoff(r, rcut):
   else: cutoff = 0.5*(1.0 + np.cos(np.pi*(r - rcut + ctwidth)/ctwidth))
   return cutoff
 
-########################################################################################## 
+##########################################################################################
 
 def density(nmax, lmax, brcut, sigma):
   #Gauss-Legendre quadrature points and weights
@@ -74,7 +73,7 @@ def get_descriptor(centres, xyz, species, nmax, lmax, rcut, gdens):
   centind = [i for i, j in enumerate(ans) if j in centres]
   desclist = []
   for l, centre in enumerate(centind):
-    f = np.zeros((nspecies, nmax+1, lmax+1, lmax+1), dtype=complex) 
+    f = np.zeros((nspecies, nmax+1, lmax+1, lmax+1), dtype=complex)
     dr = find_mic(coords - coords[centre], cell=cell, pbc=pbc)[0]
     for i, spec in common:
       labels = np.where(ans == spec)[0]
