@@ -26,7 +26,7 @@ def get_Nsoap(spkitMax,nmax,lmax):
 
 
 class RawSoapInternal(AtomicDescriptorBase):
-    def __init__(self,global_species=None,nocenters=None,rc=None, nmax=None,
+    def __init__(self,global_species=None,nocenters=None,rc=None, nmax=None,return_unlinsoap=False,
                  lmax=None, awidth=None,fast_avg=False,is_sparse=False,disable_pbar=False,leave=True):
 
         self.soap_params = dict(rc=rc, nmax=nmax, lmax=lmax, awidth=awidth,
@@ -36,11 +36,13 @@ class RawSoapInternal(AtomicDescriptorBase):
         self.is_sparse = is_sparse
         self.disable_pbar = disable_pbar
         self.leave = leave
+        self.return_unlinsoap = return_unlinsoap
 
     def fit(self,X):
         return self
     def get_params(self,deep=True):
         params = dict(is_sparse=self.is_sparse,disable_pbar=False,
+                        return_unlinsoap=self.return_unlinsoap,
                         fast_avg=self.fast_avg,leave=self.leave)
         params.update(**self.soap_params)
         return params
@@ -95,6 +97,10 @@ class RawSoapInternal(AtomicDescriptorBase):
             soaps = soaps.tocsr(copy=False)
         self.slices = slices
         self.strides = strides
+
+        if self.return_unlinsoap is True:
+            nspecies = len(global_species)-len(nocenters)
+            soaps = soaps.reshape((Nenv,nspecies,nspecies,nmax+1,nmax+1,lmax+1))
 
         return soaps
 
