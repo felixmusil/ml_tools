@@ -95,7 +95,7 @@ def get_descriptor(centres, xyz, species, nmax, lmax, rcut, gdens):
   for l, centre in enumerate(centind):
     f = np.zeros((nspecies, nmax+1, lmax+1, lmax+1), dtype=complex)
     dr = find_mic(coords - coords[centre], cell=cell, pbc=pbc)[0]
-
+    # compute density expansion
     for i, spec in common:
       labels = np.where(ans == spec)[0]
       for j in labels:
@@ -103,6 +103,7 @@ def get_descriptor(centres, xyz, species, nmax, lmax, rcut, gdens):
         if rij >= rcut: continue
         f[i] += gdens(rij, cost, phi)*cutoff(rij, rcut)
 
+    # compute SOAP descriptor
     desc = np.zeros((nspecies, nspecies, (nmax+1)**2*(lmax+1)))
     counter = 0
     for i in range(nspecies):
