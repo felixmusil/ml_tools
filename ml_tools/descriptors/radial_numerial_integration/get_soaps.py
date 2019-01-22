@@ -3,7 +3,7 @@
 import argparse
 import numpy as np
 import env_reader as er
-from ge import gaussian_expansion as ge
+from .ge import gaussian_expansion as ge
 from ase.io import read
 
 ##########################################################################################

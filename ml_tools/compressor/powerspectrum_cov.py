@@ -126,8 +126,9 @@ class CompressorCovarianceUmat(BaseEstimator,TransformerMixin):
             factors_ = np.array(factors, self.dtype)
 
             if 'angular+' in self.compression_type:
-                self.relative_scaling_weights = factors_[:int(self.soap_params['lmax']+1)]
-                factors__ = factors_[int(self.soap_params['lmax']+1):]
+                lmax1 = int(self.soap_params['lmax']+1)
+                self.relative_scaling_weights = factors_[:lmax1]
+                factors__ = factors_[lmax1:]
             elif 'species+' in self.compression_type:
                 Nsp = len(self.soap_params['global_species'])
                 self.relative_scaling_weights = factors_[:Nsp]
