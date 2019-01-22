@@ -2,7 +2,7 @@
 import numpy as np
 from ase.io import read
 from ase.geometry import find_mic
-from ge import gaussian_expansion as ge
+from .ge import gaussian_expansion as ge
 
 ##########################################################################################
 
