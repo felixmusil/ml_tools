@@ -1,4 +1,4 @@
-from .approx_dirac_radial_basis import get_descriptor,density
+from .dvr_radial_basis import get_descriptor,density
 from ..base import AtomicDescriptorBase
 from ..base import np,sp
 from scipy.sparse import lil_matrix,csr_matrix
