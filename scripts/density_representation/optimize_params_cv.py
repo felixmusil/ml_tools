@@ -310,7 +310,7 @@ if __name__ == '__main__':
         args = (X,y,cv,jitter,False,False,compressor,active_ids)
     elif loss_type == 'sor_fj_loss':
         loss_func = sor_fj_loss
-        if len(X) == 2: # is an ndddarray of len 2 containing 2 pyobject
+        if X.shape[0] == 2: # is an ndddarray of len 2 containing 2 pyobject
             rawsoaps = X[0]
             rawsoaps_active = X[1]
         else:

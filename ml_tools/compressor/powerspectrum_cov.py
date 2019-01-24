@@ -239,13 +239,11 @@ class CompressorCovarianceUmat(BaseEstimator,TransformerMixin):
         Compute the covariance of the given unlinsoap and decomposes it
         unlinsoap.shape = (Nsample,nspecies, nspecies, nmax, nmax, lmax+1)
         '''
-
-        X_c = rawsoaps.mean(axis=0).reshape((1,-1))
-
+        aa = list(rawsoaps.shape)
+        aa[0] = 1
+        X_c = rawsoaps.mean(axis=0).reshape(aa)
         X_c = self._prepare_input(X_c,to_modify=False)
-
         X = np.squeeze(X_c)
-
         nspecies, nspecies, nmax, nmax, lmax1 =  X.shape
 
         l_factor = np.sqrt(2*np.arange(lmax1)+1)
