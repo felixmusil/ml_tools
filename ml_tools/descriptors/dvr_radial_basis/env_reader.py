@@ -77,7 +77,8 @@ def get_Nsoap(spkitMax,nmax,lmax):
     return Nsoap
 
 ##########################################################################################
-
+# to help performance look at https://github.com/QuantEcon/rvlib/blob/master/rvlib/specials.py
+# to see how numba could be used here 
 def get_descriptor(centres, xyz, species, nmax, lmax, rcut, gdens):
   coords = xyz.get_positions()
   ans = xyz.get_atomic_numbers()

@@ -18,7 +18,7 @@ subroutine gaulegf(x1, x2, x, w, n)
   integer :: i, j, m
   real(8) :: p1, p2, p3, pp, xl, xm, z, z1
   real(8), parameter :: eps=3.d-14
-      
+
   pp = 0.0d0
   m = (n+1)/2
   xm = 0.5d0*(x2+x1)
@@ -56,10 +56,10 @@ real(8) function plgndr(l, m, x)
   integer :: i, ll
   real(8) :: fact, oldfact, pll, pmm, pmmp1, omx2
   real(8), parameter :: pi = 3.14159265359d0
-  
+
   pll = 0.0d0
   !if(m.lt.0.or.m.gt.l.or.abs(x).gt.1.) pause 'bad arguments in plgndr'
-  
+
   pmm=1.0d0
   if (m .gt. 0) then
     omx2 = (1.d0-x)*(1.d0+x)
@@ -69,7 +69,7 @@ real(8) function plgndr(l, m, x)
       fact = fact + 2.d0
     end do
   end if
-  
+
   pmm = sqrt((2*m + 1)*pmm/(4.d0*pi))
   if (mod(m, 2) .eq. 1) pmm = -pmm
   if (l .eq. m) then
@@ -98,7 +98,7 @@ end function plgndr
 !Hyperbolic cotangent
 real(8) function coth(x)
   real(8), intent(in) :: x
-  
+
   coth = (1.0d0 + exp(-2.0d0*x))/(1.0d0 - exp(-2.0d0*x))
 
 end function coth
@@ -108,7 +108,7 @@ end function coth
 !Hyperbolic cotangent in quad precision
 real(kind=16) function cothquad(x)
   real(kind=16), intent(in) :: x
-  
+
   cothquad = (1.0e0_16 + exp(-2.0e0_16*x))/(1.0e0_16 - exp(-2.0e0_16*x))
 
 end function cothquad
@@ -134,12 +134,12 @@ subroutine fsub(r, sigma, rij, lmax, f)
   if (r <= eps) then
     return
   end if
-   
+
   if (rij <= eps) then
     f(0) = exp(-r**2/(2.0d0*sigma**2))*r
     return
   end if
-  
+
   !l=0
   f(0) = exp(-0.5d0*(r - rij)**2/sigma**2)
   f(0) = f(0) - exp(-0.5d0*(r + rij)**2/sigma**2)
@@ -259,50 +259,7 @@ subroutine f2sub(f, nmax, lmax, cost, f2)
 
 end subroutine f2sub
 
-!----------------------------------------------------------------------------------------!
 
-!Coulomb scaling |r - r'|^-1
-subroutine coulomb(nmax, lmax, rcut, c)
-  integer, intent(in) :: nmax, lmax
-  real(8), intent(in) :: rcut
-  real(8), dimension(0:nmax, 0:nmax, 0:lmax, 0:lmax), intent(out) :: c
-  real(8), dimension(0:lmax, 0:lmax, 0:2*lmax) :: b
-  real(8), dimension(0:2*lmax) :: x, w, f1, f2, f3
-  integer :: i, j, k, l
-  real(8), dimension(0:nmax) :: xn, wn
-
-  call gaulegf(-1.0d0, 1.0d0, x, w, 2*lmax+1)
-
-  do i = 0, lmax
-    do l = 0, 2*lmax
-      f1(l) = plgndr(i, 0, x(l))
-    end do
-    do j = 0, lmax
-      do l = 0, 2*lmax
-        f2(l) = plgndr(j, 0, x(l))
-      end do
-      do k = 0, 2*lmax
-        do l = 0, 2*lmax
-          f3(l) = plgndr(k, 0, x(l))
-        end do
-        b(i, j, k) = sum(f1*f2*f3*w) 
-        b(i, j, k) = b(i, j, k)/sqrt((2.0d0*dble(k) + 1.0d0))
-      end do
-    end do
-  end do
-
-  c = 0.0d0
-  call gaulegf(0.0d0, rcut, xn, wn, nmax+1)
-  do i = 0, nmax
-    do j = i+1, nmax
-      do l = 0, 2*lmax
-        c(i, j, :, :) = c(i, j, :, :) + b(:, :, l)*xn(i)**l/xn(j)**(l+1)
-        c(j, i, :, :) = c(i, j, :, :)
-      end do
-    end do
-  end do
-
-end subroutine coulomb
 
 !----------------------------------------------------------------------------------------!
 
