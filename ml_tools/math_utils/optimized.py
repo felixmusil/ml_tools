@@ -110,6 +110,18 @@ def symmetrize(p,dtype=np.float64):
     symm_0(p,p2,ids,Nsoap,Ncomp)
     return p2
 
+@njit(parallel=True)
+def symm_0(p,p2,ids,Nsoap,Ncomp):
+    N = len(ids)
+    fac = math.sqrt(2.0)
+    for iframe in prange(Nsoap):
+        for ii in prange(N):
+            i,st,nd = ids[ii,0],ids[ii,1],ids[ii,2]
+            p2[iframe,st] = p[iframe,i, i]
+            p2[iframe,st+1:nd] = p[iframe,i, (i+1):Ncomp]*fac
+        p2[iframe,-1] = p[iframe,Ncomp-1,Ncomp-1]
+
+
 def get_unlin_soap(rawsoap,params,global_species,dtype=np.float64):
     """
     Take soap vector from QUIP and undo the vectorization
@@ -158,16 +170,3 @@ def opt_0(rawsoap,p,rs_index,fac,ff,Nframe,nmax,nspecies,lmax):
             for s2 in prange(s1):
                 p[iframe,s2, s1] = p[iframe,s1, s2].transpose((1,0,2))
 
-@njit([void(float64[:,:,:,:], float64[:,:,:],int32[:,:],int32,int32),
-        void(float32[:,:,:,:], float32[:,:,:],int32[:,:],int32,int32),
-        void(float64[:,:,:,:], float64[:,:,:],int32[:,:],int64,int64),
-        void(float32[:,:,:,:], float32[:,:,:],int32[:,:],int64,int64)],parallel=True)
-def symm_0(p,p2,ids,Nsoap,Ncomp):
-    N = len(ids)
-    fac = math.sqrt(2.0)
-    for iframe in prange(Nsoap):
-        for ii in prange(N):
-            i,st,nd = ids[ii,0],ids[ii,1],ids[ii,2]
-            p2[iframe,st] = p[iframe,i, i]
-            p2[iframe,st+1:nd] = p[iframe,i, (i+1):Ncomp]*fac
-        p2[iframe,-1] = p[iframe,Ncomp-1,Ncomp-1]

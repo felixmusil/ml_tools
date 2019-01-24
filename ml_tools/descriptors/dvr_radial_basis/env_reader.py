@@ -46,7 +46,7 @@ def power_spectrum(nmax, lmax, f1, f2):
   f2conj = np.conj(f2)
   ps = np.einsum('ikl,jkl -> ijk', f1, f2conj,optimize='optimal')
   ps /= np.sqrt(2.0*np.arange(lmax+1) + 1.0)
-  ps = np.real(ps).ravel()
+  ps = np.real(ps)
   return ps
 
 ##########################################################################################
@@ -78,7 +78,7 @@ def get_Nsoap(spkitMax,nmax,lmax):
 
 ##########################################################################################
 # to help performance look at https://github.com/QuantEcon/rvlib/blob/master/rvlib/specials.py
-# to see how numba could be used here 
+# to see how numba could be used here
 def get_descriptor(centres, xyz, species, nmax, lmax, rcut, gdens):
   coords = xyz.get_positions()
   ans = xyz.get_atomic_numbers()
@@ -106,12 +106,12 @@ def get_descriptor(centres, xyz, species, nmax, lmax, rcut, gdens):
         f[i] += gdens(rij, cost, phi)*cutoff(rij, rcut)
 
     # compute SOAP descriptor
-    desc = np.zeros((nspecies, nspecies, (nmax+1)**2*(lmax+1)))
+    desc = np.zeros((nspecies, nspecies, nmax+1,nmax+1,lmax+1))
     counter = 0
     for i in range(nspecies):
       for j in range(i, nspecies):
         desc[i, j] = power_spectrum(nmax, lmax, f[i], f[j])
-        desc[j, i] = desc[i, j]
+        desc[j, i] = desc[i, j].transpose(1,0,2)
     desclist[l] = desc.flatten()
   return desclist
 
