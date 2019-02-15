@@ -29,9 +29,9 @@ class RawSoapInternal(AtomicDescriptorBase):
     def __init__(self,global_species=None,nocenters=None,rc=None, nmax=None,return_unlinsoap=False,
                  lmax=None, awidth=None,fast_avg=False,is_sparse=False,disable_pbar=False,leave=True):
 
-        self.soap_params = dict(rc=rc, nmax=nmax, lmax=lmax, awidth=awidth,
-                                global_species=global_species,
-                               nocenters=nocenters)
+        self.soap_params = dict(
+            rc=float(rc), nmax=int(nmax), lmax=int(lmax),awidth=float(awidth),
+            global_species=list(global_species),nocenters=list(nocenters))
         self.fast_avg = fast_avg
         self.is_sparse = is_sparse
         self.disable_pbar = disable_pbar
