@@ -5,3 +5,4 @@
 *.so
 *.mod
 build*
+*-checkpoint.ipynb
