@@ -27,7 +27,7 @@ def get_Nsoap(spkitMax,nmax,lmax):
 
 class RawSoapInternal(AtomicDescriptorBase):
     def __init__(self,global_species=None,nocenters=None,rc=None, nmax=None,return_unlinsoap=False,
-                 lmax=None, awidth=None,fast_avg=False,is_sparse=False,disable_pbar=False,leave=True):
+                 lmax=None, awidth=None,fast_avg=False,is_sparse=False,disable_pbar=False,leave=False):
 
         self.soap_params = dict(
             rc=float(rc), nmax=int(nmax), lmax=int(lmax),awidth=float(awidth),

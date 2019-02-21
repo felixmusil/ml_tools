@@ -74,6 +74,9 @@ class KernelSum(KernelBase):
         self.chunk_shape = params['chunk_shape']
         self.disable_pbar = params['disable_pbar']
 
+    def __call__(self, X, Y=None):
+        return self.transform(X, Y)
+
     def transform(self,X,X_train=None):
         Xfeat,Xstrides = X['feature_matrix'], X['strides']
 

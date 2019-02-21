@@ -29,17 +29,16 @@ class FPSFilter(BaseEstimator,TransformerMixin):
         return params
 
     def fit(self,X,dry_run=False):
-        if isinstance(X,dict):
-            x = X['feature matrix']
+        if isinstance(X,dict) and self.act_on in ['feature','feature A transform']:
+            x = X['feature_matrix'].T
+        elif self.act_on in ['feature','feature A transform']:
+            x = X.T
         else:
             x = X
 
-        if self.act_on in ['sample']:
-            pass
-        elif self.act_on in ['feature','feature A transform']:
-            x = x.T
-
-        if dry_run:
+        if dry_run and isinstance(X,dict):
+            Nselect = x['feature_matrix'].shape[0]
+        elif dry_run:
             Nselect = x.shape[0]
         else:
             Nselect = self.Nselect
