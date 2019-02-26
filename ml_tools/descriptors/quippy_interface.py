@@ -6,7 +6,7 @@ import re
 from string import Template
 from ..utils import tqdm_cs
 from .utils import get_chunks,get_frame_slices
-
+from .feature import DenseFeature
 
 def ase2qp(aseatoms):
     from quippy import Atoms as qpAtoms
@@ -30,10 +30,8 @@ def get_Nsoap(spkitMax,nmax,lmax):
 
 def get_rawsoap(frame,soapstr,nocenters, global_species, rc, nmax, lmax,awidth,
                 centerweight,cutoff_transition_width,
-                 cutoff_dexp, cutoff_scale,cutoff_rate):
-    frame = ase2qp(frame)
-    frame.set_cutoff(rc)
-    frame.calc_connect()
+                 cutoff_dexp, cutoff_scale,cutoff_rate,grad=False):
+
     global_speciesstr = '{'+re.sub('[\[,\]]', '', str(global_species))+'}'
     nspecies = len(global_species)
 
@@ -58,16 +56,17 @@ def get_rawsoap(frame,soapstr,nocenters, global_species, rc, nmax, lmax,awidth,
                                  rc=rc, nmax=nmax, lmax=lmax, awidth=awidth,cutoff_dexp=cutoff_dexp,
                                   cutoff_scale=cutoff_scale,centerweight=centerweight)
     desc = descriptors.Descriptor(soapstr2)
-    soap = desc.calc(frame, grad=False)['descriptor']
-    return soap
+
+    return desc.calc(frame, grad=grad)
+
 
 class RawSoapQUIP(AtomicDescriptorBase):
     def __init__(self,global_species=None,nocenters=None,rc=None, nmax=None,
                  lmax=None, awidth=None,centerweight=None,cutoff_transition_width=None, cutoff_rate=None,
-                 cutoff_dexp=None, cutoff_scale=None,fast_avg=False,is_sparse=False,disable_pbar=False):
+                 cutoff_dexp=None, cutoff_scale=None,fast_avg=False,is_sparse=False,disable_pbar=False, grad=False):
         if global_species is None and rc is None:
             pass
-        self.soap_params = dict(rc=rc, nmax=nmax, lmax=lmax, awidth=awidth,cutoff_rate=cutoff_rate,
+        self.soap_params = dict(rc=rc, nmax=nmax, lmax=lmax, awidth=awidth,cutoff_rate=cutoff_rate,grad=grad,
                                 cutoff_transition_width=cutoff_transition_width,
                                 cutoff_dexp=cutoff_dexp, cutoff_scale=cutoff_scale,
                                 centerweight=centerweight,global_species=global_species,
@@ -82,12 +81,18 @@ class RawSoapQUIP(AtomicDescriptorBase):
         params.update(**self.soap_params)
         return params
 
+    def get_neigbourlist(self,frame):
+        frame = ase2qp(frame)
+        frame.set_cutoff(self.soap_params['rc'])
+        frame.calc_connect()
+        return frame
+
     def transform(self,X):
 
-        frames = X
+        frames = map(self.get_neigbourlist,X)
 
-        slices,strides = get_frame_slices(frames,nocenters=self.soap_params['nocenters'],
-                                          fast_avg=self.fast_avg )
+        grad = self.soap_params['grad']
+        slices,strides = get_frame_slices(frames,nocenters=self.soap_params['nocenters'],fast_avg=self.fast_avg )
 
         Nenv = strides[-1]
 
@@ -106,11 +111,22 @@ class RawSoapQUIP(AtomicDescriptorBase):
         if self.is_sparse:
             soaps = lil_matrix((Nenv,Nsoap),dtype=np.float64)
         else:
+            feature = DenseFeature(frames,Nsoap,with_gradients=grad)
             soaps = np.empty((Nenv,Nsoap))
+            if grad is True:
+                dsoaps = np.empty((3,Nenv,Nsoap))
 
         for iframe in tqdm_cs(range(Nframe),desc='RawSoap',leave=True,disable=self.disable_pbar):
-            soap = get_rawsoap(frames[iframe],soapstr,**self.soap_params)
-
+            result = get_rawsoap(frames[iframe],soapstr,**self.soap_params)
+            soap = result['descriptor']
+            if grad is True:
+                # dsoap = result['grad'].transpose((1,0,2))
+                grad_idx = result['grad_index_0based']
+                n_env = soap.shape[0]
+                dsoap = np.empty((3,n_env,Nsoap))
+                for i_env in range(n_env):
+                    iis = np.where(grad_idx[:,0] == i_env)[0]
+                    dsoap[:,i_env] = np.sum(result['grad'][iis], axis=0)
             if self.fast_avg:
                 soap = np.mean(soap,axis=0)
 
@@ -119,12 +135,16 @@ class RawSoapQUIP(AtomicDescriptorBase):
                 soaps[slices[iframe]] = lil_matrix(soap)
             else:
                 soaps[slices[iframe]] = soap
+                if grad is True:
+                    dsoaps[:,slices[iframe]] = dsoap
         if self.is_sparse:
             soaps = soaps.tocsr(copy=False)
         self.slices = slices
         self.strides = strides
-
-        return soaps
+        if grad is False:
+            return soaps
+        elif grad is True:
+            return soaps,dsoaps
 
     def pack(self):
         state = dict(soap_params=self.soap_params,is_sparse=self.is_sparse,
