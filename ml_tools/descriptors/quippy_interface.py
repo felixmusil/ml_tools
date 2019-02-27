@@ -60,6 +60,22 @@ def get_rawsoap(frame,soapstr,nocenters, global_species, rc, nmax, lmax,awidth,
     return desc.calc(frame, grad=grad)
 
 
+def get_frame_neigbours(frames):
+    Nneighbour = 0
+    strides_neighbour = [0]
+    strides_gradients = [0]
+    for frame in frames:
+        n_neighb = frame.get_array('n_neighb')
+        Nneighbour += np.sum(n_neighb)
+        strides_neighbour += list(n_neighb)
+        strides_gradients += [np.sum(n_neighb)]
+    strides_neighbour = np.cumsum(strides_neighbour)
+    strides_gradients = np.cumsum(strides_gradients)
+    slices_gradients = []
+    for st,nd in zip(strides_gradients[:-1],strides_gradients[1:]):
+        slices_gradients.append(slice(st,nd))
+    return Nneighbour,strides_neighbour,strides_gradients,slices_gradients
+
 class RawSoapQUIP(AtomicDescriptorBase):
     def __init__(self,global_species=None,nocenters=None,rc=None, nmax=None,
                  lmax=None, awidth=None,centerweight=None,cutoff_transition_width=None, cutoff_rate=None,
@@ -92,7 +108,9 @@ class RawSoapQUIP(AtomicDescriptorBase):
         frames = map(self.get_neigbourlist,X)
 
         grad = self.soap_params['grad']
-        slices,strides = get_frame_slices(frames,nocenters=self.soap_params['nocenters'],fast_avg=self.fast_avg )
+        slices,strides = get_frame_slices(frames,nocenters=self.soap_params['nocenters'], fast_avg=self.fast_avg)
+
+        Nneighbour,strides_neighbour,strides_gradients,slices_gradients = get_frame_neigbourlist(frames)
 
         Nenv = strides[-1]
 
@@ -111,22 +129,27 @@ class RawSoapQUIP(AtomicDescriptorBase):
         if self.is_sparse:
             soaps = lil_matrix((Nenv,Nsoap),dtype=np.float64)
         else:
-            feature = DenseFeature(frames,Nsoap,with_gradients=grad)
-            soaps = np.empty((Nenv,Nsoap))
-            if grad is True:
-                dsoaps = np.empty((3,Nenv,Nsoap))
+            feature = DenseFeature(Nenv,Nsoap,Nneighbour,with_gradients=grad)
+            # soaps = np.empty((Nenv,Nsoap))
+            # if grad is True:
+            #     dsoaps = np.empty((3,Nenv,Nsoap))
 
         for iframe in tqdm_cs(range(Nframe),desc='RawSoap',leave=True,disable=self.disable_pbar):
             result = get_rawsoap(frames[iframe],soapstr,**self.soap_params)
             soap = result['descriptor']
+            inp = dict(iframe=iframe, slice_representations=slices[iframe],
+                        representations=result['descriptor'])
             if grad is True:
-                # dsoap = result['grad'].transpose((1,0,2))
-                grad_idx = result['grad_index_0based']
-                n_env = soap.shape[0]
-                dsoap = np.empty((3,n_env,Nsoap))
-                for i_env in range(n_env):
-                    iis = np.where(grad_idx[:,0] == i_env)[0]
-                    dsoap[:,i_env] = np.sum(result['grad'][iis], axis=0)
+                neighbourlist = []
+                neigh_ids = result['grad_index_0based']
+                for ii in range(soap.shape[0]):
+                    ii_grads = np.where(neigh_ids[:,0] == ii)[0]
+                    neighbourlist.append(neigh_ids[ii_grads,1])
+                inp.update(**dict(
+                    neighbourlist=neighbourlist,
+                    slice_gradients=slices_gradients[iframe],
+                    gradients=result['grad']))
+
             if self.fast_avg:
                 soap = np.mean(soap,axis=0)
 
@@ -134,17 +157,15 @@ class RawSoapQUIP(AtomicDescriptorBase):
                 soap[np.abs(soap)<1e-13] = 0
                 soaps[slices[iframe]] = lil_matrix(soap)
             else:
-                soaps[slices[iframe]] = soap
-                if grad is True:
-                    dsoaps[:,slices[iframe]] = dsoap
+                feature.insert(**inp)
+
         if self.is_sparse:
             soaps = soaps.tocsr(copy=False)
+            
         self.slices = slices
         self.strides = strides
-        if grad is False:
-            return soaps
-        elif grad is True:
-            return soaps,dsoaps
+
+        return feature
 
     def pack(self):
         state = dict(soap_params=self.soap_params,is_sparse=self.is_sparse,
