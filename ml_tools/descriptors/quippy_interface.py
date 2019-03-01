@@ -60,21 +60,27 @@ def get_rawsoap(frame,soapstr,nocenters, global_species, rc, nmax, lmax,awidth,
     return desc.calc(frame, grad=grad)
 
 
-def get_frame_neigbours(frames):
+def get_frame_neigbourlist(frames):
     Nneighbour = 0
-    strides_neighbour = [0]
+    strides_neighbour = []
     strides_gradients = [0]
     for frame in frames:
-        n_neighb = frame.get_array('n_neighb')
+        # include centers too wit +1
+        n_neighb = frame.get_array('n_neighb')+1
         Nneighbour += np.sum(n_neighb)
         strides_neighbour += list(n_neighb)
         strides_gradients += [np.sum(n_neighb)]
-    strides_neighbour = np.cumsum(strides_neighbour)
+
     strides_gradients = np.cumsum(strides_gradients)
     slices_gradients = []
     for st,nd in zip(strides_gradients[:-1],strides_gradients[1:]):
         slices_gradients.append(slice(st,nd))
-    return Nneighbour,strides_neighbour,strides_gradients,slices_gradients
+
+    strides_gradients = [0]+strides_neighbour*3
+
+    strides_gradients = np.cumsum(strides_gradients)
+
+    return Nneighbour,strides_gradients,slices_gradients
 
 class RawSoapQUIP(AtomicDescriptorBase):
     def __init__(self,global_species=None,nocenters=None,rc=None, nmax=None,
@@ -110,8 +116,7 @@ class RawSoapQUIP(AtomicDescriptorBase):
         grad = self.soap_params['grad']
         slices,strides = get_frame_slices(frames,nocenters=self.soap_params['nocenters'], fast_avg=self.fast_avg)
 
-        Nneighbour,strides_neighbour,strides_gradients,slices_gradients = get_frame_neigbourlist(frames)
-
+        Nneighbour,strides_gradients,slices_gradients = get_frame_neigbourlist(frames)
         Nenv = strides[-1]
 
         soapstr = Template(' '.join(['average=F normalise=T soap cutoff_dexp=$cutoff_dexp cutoff_rate=$cutoff_rate ',
@@ -119,7 +124,6 @@ class RawSoapQUIP(AtomicDescriptorBase):
                             'central_weight=$centerweight covariance_sigma0=0.0 atom_sigma=$awidth',
                             'cutoff=$rc cutoff_transition_width=$cutoff_transition_width n_max=$nmax l_max=$lmax',
                             'n_species=$nspecies species_Z=$species n_Z=$ncentres Z=$centres']))
-
 
         Nsoap = get_Nsoap(self.soap_params['global_species'],self.soap_params['nmax'],
                           self.soap_params['lmax'])
@@ -129,10 +133,8 @@ class RawSoapQUIP(AtomicDescriptorBase):
         if self.is_sparse:
             soaps = lil_matrix((Nenv,Nsoap),dtype=np.float64)
         else:
-            feature = DenseFeature(Nenv,Nsoap,Nneighbour,with_gradients=grad)
-            # soaps = np.empty((Nenv,Nsoap))
-            # if grad is True:
-            #     dsoaps = np.empty((3,Nenv,Nsoap))
+            feature = DenseFeature(Nenv,Nsoap,strides,Nneighbour,strides_gradients,with_gradients=grad)
+
 
         for iframe in tqdm_cs(range(Nframe),desc='RawSoap',leave=True,disable=self.disable_pbar):
             result = get_rawsoap(frames[iframe],soapstr,**self.soap_params)
@@ -161,7 +163,7 @@ class RawSoapQUIP(AtomicDescriptorBase):
 
         if self.is_sparse:
             soaps = soaps.tocsr(copy=False)
-            
+
         self.slices = slices
         self.strides = strides
 

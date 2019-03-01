@@ -43,13 +43,13 @@ def average_kernel(envKernel,Xstrides,Ystrides,is_square):
 def get_average_square(kernel,env_kernel,ids_n):
     Nenv = ids_n.shape[0]-1
     for it in prange(Nenv):
-        ist,ind = ids_n[it],ids_n[it+1]
         for jt in prange(Nenv):
             if it < jt: continue
+            ist,ind = ids_n[it],ids_n[it+1]
             jst,jnd = ids_n[jt],ids_n[jt+1]
-            for ii in prange(ist,ind):
+            for ii in range(ist,ind):
                 # computes only lower triangular
-                for jj in prange(jst,jnd):
+                for jj in range(jst,jnd):
                     kernel[it,jt] += env_kernel[ii,jj]
             kernel[it,jt] /= (ind-ist)*(jnd-jst)
 

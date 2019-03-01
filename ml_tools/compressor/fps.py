@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 from ..base import np,sp
-from ..base import BaseEstimator,TransformerMixin
+from ..base import BaseEstimator,TransformerMixin,FeatureBase
 from ..utils import tqdm_cs
 import matplotlib.pyplot as plt
 
@@ -29,9 +29,12 @@ class FPSFilter(BaseEstimator,TransformerMixin):
         return params
 
     def fit(self,X,dry_run=False):
-        if isinstance(X,dict) and self.act_on in ['feature','feature A transform']:
+        is_feature_selection = self.act_on in ['feature','feature A transform']
+        if isinstance(X,dict) and is_feature_selection:
             x = X['feature_matrix'].T
-        elif self.act_on in ['feature','feature A transform']:
+        elif isinstance(X,FeatureBase) and is_feature_selection:
+            x = X.representations.T
+        elif is_feature_selection:
             x = X.T
         else:
             x = X
@@ -66,11 +69,22 @@ class FPSFilter(BaseEstimator,TransformerMixin):
             # at prediction time it should do nothing to the
             # new samples
             self.trained = False
-            return X[self.selected_ids[:self.Nselect],:]
+            if isinstance(X,FeatureBase):
+                return X.extract_pseudo_input(self.selected_ids[:self.Nselect])
+            else:
+                return X[self.selected_ids[:self.Nselect],:]
         elif self.act_on == 'feature':
-            return X[:,self.selected_ids[:self.Nselect]]
+            if isinstance(X,FeatureBase):
+                return X.extract_feature_selection(self.selected_ids[:self.Nselect])
+            else:
+                return X[:,self.selected_ids[:self.Nselect]]
         elif self.act_on == 'feature A transform':
-            return np.dot(X[:,self.selected_ids[:self.Nselect]],self.transformation_mat)
+            if isinstance(X,FeatureBase):
+                X_selected = X.extract_feature_selection(self.selected_ids[:self.Nselect])
+                X_selected.representations = np.dot(X_selected.representations,self.transformation_mat)
+                return X_selected
+            else:
+                return np.dot(X[:,self.selected_ids[:self.Nselect]],self.transformation_mat)
         else:
             return X
 

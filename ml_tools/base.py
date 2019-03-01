@@ -38,6 +38,9 @@ class TrainerBase(object):
     def fit(self):
         pass
 
+class FeatureBase(object):
+    def __init__(self):
+        pass
 
 class KernelBase(BaseEstimator,TransformerMixin):
     def __init__(self):

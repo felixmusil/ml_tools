@@ -1,10 +1,11 @@
 
-from ..base import KernelBase
+from ..base import KernelBase,FeatureBase
 from ..base import np,sp
 from ..math_utils import power,average_kernel
 from ..utils import tqdm_cs,is_autograd_instance
 #from ..math_utils.basic import power,average_kernel
 from scipy.sparse import issparse
+# from collections.abc import Iterable
 
 
 class KernelPower(KernelBase):
@@ -18,26 +19,29 @@ class KernelPower(KernelBase):
     def set_params(self,**params):
         self.zeta = params['zeta']
     def transform(self,X,X_train=None):
-        if X_train is None:
-            return self(X)
-        else:
-            return self(X,Y=X_train)
+        return self(X,Y=X_train)
 
     def __call__(self, X, Y=None, eval_gradient=False):
         # X should be shape=(Nsample,Mfeature)
         # if not assumes additional dims are features
-        if len(X.shape) > 2:
+        if isinstance(X, FeatureBase):
+            Xi = X.representations
+        elif len(X.shape) > 2:
             Nenv = X.shape[0]
             Xi = X.reshape((Nenv,-1))
         else:
             Xi = X
-        if Y is None:
+
+        if isinstance(Y, FeatureBase):
+            Yi = Y.representations
+        elif Y is None:
             Yi = Xi
         elif len(Y.shape) > 2:
             Nenv = Y.shape[0]
             Yi = Y.reshape((Nenv,-1))
         else:
             Yi = Y
+
 
         if issparse(Xi) is False:
             return power(np.dot(Xi,Yi.T),self.zeta)
@@ -77,15 +81,20 @@ class KernelSum(KernelBase):
     def __call__(self, X, Y=None):
         return self.transform(X, Y)
 
-    def transform(self,X,X_train=None):
-        Xfeat,Xstrides = X['feature_matrix'], X['strides']
+    def transform(self,X,X_train=None, eval_gradient=False):
+        if isinstance(X,FeatureBase):
+            Xfeat,Xstrides = X.get_data(eval_gradient)
+        elif isinstance(X,dict):
+            Xfeat,Xstrides = X['feature_matrix'], X['strides']
 
-        if X_train is not None:
-            Yfeat,Ystrides = X_train['feature_matrix'], X_train['strides']
-            is_square = False
-        else:
+        is_square = False
+        if X_train is None:
             Yfeat,Ystrides = Xfeat,Xstrides
             is_square = True
+        elif isinstance(X_train,FeatureBase):
+            Yfeat,Ystrides = X_train.get_data(gradients=False)
+        elif isinstance(X_train,dict):
+            Yfeat,Ystrides = X_train['feature_matrix'], X_train['strides']
 
         if self.chunk_shape is None:
             K = self.get_global_kernel(Xfeat,Xstrides,Yfeat,Ystrides,is_square)
@@ -95,7 +104,6 @@ class KernelSum(KernelBase):
         else:
             K = self.get_global_kernel_chunk(Xfeat,Xstrides,Yfeat,Ystrides,is_square)
         return K
-
 
     def get_global_kernel(self,Xfeat,Xstrides,Yfeat,Ystrides,is_square):
         envKernel = self.kernel(Xfeat,Yfeat)
