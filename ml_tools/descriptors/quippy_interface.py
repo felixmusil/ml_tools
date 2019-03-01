@@ -124,7 +124,7 @@ class RawSoapQUIP(AtomicDescriptorBase):
                             'central_weight=$centerweight covariance_sigma0=0.0 atom_sigma=$awidth',
                             'cutoff=$rc cutoff_transition_width=$cutoff_transition_width n_max=$nmax l_max=$lmax', 
                             'n_species=$nspecies species_Z=$species n_Z=$ncentres Z=$centres']))
-        
+        print soapstr        
         
         Nsoap = get_Nsoap(self.soap_params['global_species'],self.soap_params['nmax'],
                           self.soap_params['lmax'])
