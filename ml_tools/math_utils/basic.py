@@ -4,6 +4,21 @@ from autograd.extend import primitive,defvjp,defjvp
 def power(x,zeta):
     return np.power(x,zeta)
 
+
+def sum_kernel(envKernel,Xstrides,Ystrides,is_square):
+    N = len(Xstrides)-1
+    M = len(Ystrides)-1
+    K = np.zeros((N,M),order='C')
+    for ii,(ist,ind) in enumerate(zip(Xstrides[:-1],Xstrides[1:])):
+        for jj,(jst,jnd) in enumerate(zip(Ystrides[:-1],Ystrides[1:])):
+            if is_square is True:
+                if ii < jj: continue
+            K[ii,jj] = np.sum(envKernel[ist:ind,jst:jnd])
+
+    if is_square is True:
+        K += np.tril(K,k=-1).T
+    return K
+
 @primitive
 def average_kernel(envKernel,Xstrides,Ystrides,is_square):
     N = len(Xstrides)-1
@@ -14,7 +29,7 @@ def average_kernel(envKernel,Xstrides,Ystrides,is_square):
             if is_square is True:
                 if ii < jj: continue
             K[ii,jj] = np.mean(envKernel[ist:ind,jst:jnd])
-    
+
     if is_square is True:
         K += np.tril(K,k=-1).T
     return K
@@ -50,7 +65,7 @@ def symmetrize(p):
 
 def get_unlin_soap(rawsoap,params,global_species):
     """
-    Take soap vector from QUIP and undo the vectorization 
+    Take soap vector from QUIP and undo the vectorization
     (nspecies is symmetric and sometimes nmax so some terms don't exist in the soap vector of QUIP)
     """
     nmax = params['nmax']
@@ -77,5 +92,5 @@ def get_unlin_soap(rawsoap,params,global_species):
     for s1 in xrange(nspecies):
         for s2 in xrange(s1):
             p[:,s2, s1] = p[:,s1, s2].transpose((0, 2, 1, 3))
-    
+
     return p

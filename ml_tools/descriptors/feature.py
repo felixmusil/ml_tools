@@ -35,7 +35,7 @@ class DenseFeature(FeatureBase):
         elif gradients is True:
             return self.gradients.reshape(self.shape_grad_out),self.strides_gradients
 
-    def insert(self,iframe, slice_representations, representations, neighbourlist=None, slice_gradients=None, gradients=None):
+    def insert(self, iframe, slice_representations, representations, neighbourlist=None, slice_gradients=None, gradients=None):
         self.representations[slice_representations] = representations
         for i_center in range(slice_representations.start,
                               slice_representations.stop):
@@ -44,7 +44,7 @@ class DenseFeature(FeatureBase):
         if self.with_gradients is True:
             self.neighbourlists[iframe] = neighbourlist
             st = slice_gradients.start
-            for i_center_local,neigh_ids in enumerate(neighbourlist):
+            for i_center_local,neigh_ids in enumerate(neighbourlist[iframe]):
                 nd = st + len(neigh_ids)
 
                 self.gradients[:,slice_gradients] = np.swapaxes(gradients,1,0)
@@ -53,8 +53,9 @@ class DenseFeature(FeatureBase):
 
     def extract_pseudo_input(self,ids_pseudo_input):
         Ncenter = len(ids_pseudo_input)
+        #print Ncenter
         Nfeature = self.shape_rep[1]
-        strides = np.arange(Ncenter)
+        strides = np.arange(Ncenter+1)
         X_pseudo = DenseFeature(Ncenter,Nfeature,strides)
         X_pseudo.representations_mapping = None
         X_pseudo.representations = self.representations[ids_pseudo_input]
@@ -85,6 +86,12 @@ class DenseFeature(FeatureBase):
             return len(self.strides)-1
         if gradients is True:
             return len(self.strides_gradients)-1
+
+    def get_nb_environmental_elements(self,gradients=False):
+        if gradients is False:
+            return self.shape_rep[0]
+        if gradients is True:
+            return self.shape_grad_out[0]
 
     def set_chunk_len(self, chunk_len):
         if chunk_len is None:

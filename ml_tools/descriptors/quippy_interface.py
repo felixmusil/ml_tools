@@ -60,13 +60,21 @@ def get_rawsoap(frame,soapstr,nocenters, global_species, rc, nmax, lmax,awidth,
     return desc.calc(frame, grad=grad)
 
 
-def get_frame_neigbourlist(frames):
+def get_frame_neigbourlist(frames,nocenters):
     Nneighbour = 0
     strides_neighbour = []
     strides_gradients = [0]
     for frame in frames:
         # include centers too wit +1
+        numbers = frame.get_atomic_numbers()
         n_neighb = frame.get_array('n_neighb')+1
+        mask = np.zeros(numbers.shape,dtype=bool)
+
+        for sp in nocenters:
+            mask = np.logical_or(mask, numbers == sp)
+        mask = np.logical_not(mask)
+        
+        n_neighb = n_neighb[mask]
         Nneighbour += np.sum(n_neighb)
         strides_neighbour += list(n_neighb)
         strides_gradients += [np.sum(n_neighb)]
@@ -116,7 +124,7 @@ class RawSoapQUIP(AtomicDescriptorBase):
         grad = self.soap_params['grad']
         slices,strides = get_frame_slices(frames,nocenters=self.soap_params['nocenters'], fast_avg=self.fast_avg)
 
-        Nneighbour,strides_gradients,slices_gradients = get_frame_neigbourlist(frames)
+        Nneighbour,strides_gradients,slices_gradients = get_frame_neigbourlist(frames,nocenters=self.soap_params['nocenters'])
         Nenv = strides[-1]
 
         soapstr = Template(' '.join(['average=F normalise=T soap cutoff_dexp=$cutoff_dexp cutoff_rate=$cutoff_rate ',

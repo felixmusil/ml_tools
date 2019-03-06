@@ -21,6 +21,51 @@ defjvp(power,
     lambda g, ans, x, y : g * np.log(replace_zero(x, 1.)) * power(x,y)
       )
 
+def sum_kernel(envKernel,Xstrides,Ystrides,is_square):
+    N,M = len(Xstrides)-1,len(Ystrides)-1
+    K = np.zeros((N,M),order='C')
+    ids_n = np.asarray(Xstrides,dtype=np.int32)
+    if is_square is False:
+        ids_m = np.asarray(Ystrides,dtype=np.int32)
+        get_sum_rectangular(K,envKernel,ids_n,ids_m)
+
+    elif is_square is True:
+        # computes only lower triangular
+        get_sum_square(K,envKernel,ids_n)
+        K += np.tril(K,k=-1).T
+    return K
+
+@njit([void(float64[:,:], float64[:,:],int32[:]),
+        void(float32[:,:], float32[:,:],int32[:])],parallel=True)
+def get_sum_square(kernel,env_kernel,ids_n):
+    Nenv = ids_n.shape[0]-1
+    for it in prange(Nenv):
+        for jt in prange(Nenv):
+            # computes only lower triangular
+            if it < jt: continue
+            ist,ind = ids_n[it],ids_n[it+1]
+            jst,jnd = ids_n[jt],ids_n[jt+1]
+            for ii in range(ist,ind):
+                for jj in range(jst,jnd):
+                    kernel[it,jt] += env_kernel[ii,jj]
+            # kernel[it,jt] /= (ind-ist)*(jnd-jst)
+
+
+@njit([void(float64[:,:], float64[:,:],int32[:],int32[:]),
+        void(float32[:,:], float32[:,:],int32[:],int32[:])],parallel=True)
+def get_sum_rectangular(kernel,env_kernel,ids_n,ids_m):
+    Nenv = ids_n.shape[0]-1
+    Menv = ids_m.shape[0]-1
+    for it in prange(Nenv):
+        ist,ind = ids_n[it],ids_n[it+1]
+        for jt in prange(Menv):
+            jst,jnd = ids_m[jt],ids_m[jt+1]
+            for ii in prange(ist,ind):
+                for jj in prange(jst,jnd):
+                    kernel[it,jt] += env_kernel[ii,jj]
+            #kernel[it,jt] /= (ind-ist)*(jnd-jst)
+
+
 @primitive
 def average_kernel(envKernel,Xstrides,Ystrides,is_square):
     N,M = len(Xstrides)-1,len(Ystrides)-1
