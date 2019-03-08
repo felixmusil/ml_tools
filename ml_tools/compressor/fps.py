@@ -32,17 +32,21 @@ class FPSFilter(BaseEstimator,TransformerMixin):
         is_feature_selection = self.act_on in ['feature','feature A transform']
         if isinstance(X,dict) and is_feature_selection:
             x = X['feature_matrix'].T
-        elif isinstance(X,FeatureBase) and is_feature_selection:
-            x = X
-            x = x.representations.T
+        elif isinstance(X,FeatureBase):
+            gradients = False
+            if gradients is False:
+                x = X.get_data()
+            elif gradients is True:
+                x = X.get_data(gradients=True)
+
+            if is_feature_selection is True:
+                x = x.T
         elif is_feature_selection:
             x = X.T
         else:
             x = X
 
-        if isinstance(X,FeatureBase):
-            if self.Nselect > x.shape_rep[0]:
-                self.Nselect = x.shape_rep[0]
+
 
         if dry_run and isinstance(X,dict):
             Nselect = x['feature_matrix'].shape[0]

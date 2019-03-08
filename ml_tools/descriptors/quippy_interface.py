@@ -1,4 +1,4 @@
-from ..base import AtomicDescriptorBase
+from ..base import AtomicDescriptorBase,FeatureBase
 from quippy import descriptors
 from ..base import np,sp
 from scipy.sparse import lil_matrix,csr_matrix
@@ -6,7 +6,7 @@ import re
 from string import Template
 from ..utils import tqdm_cs
 from .utils import get_chunks,get_frame_slices
-from .feature import DenseFeature
+from .feature import DenseFeature,FeatureWithGrad
 
 def ase2qp(aseatoms):
     from quippy import Atoms as qpAtoms
@@ -15,8 +15,6 @@ def ase2qp(aseatoms):
     numbers = aseatoms.get_atomic_numbers()
     pbc = aseatoms.get_pbc()
     return qpAtoms(numbers=numbers,cell=cell,positions=positions,pbc=pbc)
-
-
 
 def get_Nsoap(spkitMax,nmax,lmax):
     Nsoap = 0
@@ -59,7 +57,6 @@ def get_rawsoap(frame,soapstr,nocenters, global_species, rc, nmax, lmax,awidth,
 
     return desc.calc(frame, grad=grad)
 
-
 def get_frame_neigbourlist(frames,nocenters):
     Nneighbour = 0
     strides_neighbour = []
@@ -73,7 +70,7 @@ def get_frame_neigbourlist(frames,nocenters):
         for sp in nocenters:
             mask = np.logical_or(mask, numbers == sp)
         mask = np.logical_not(mask)
-        
+
         n_neighb = n_neighb[mask]
         Nneighbour += np.sum(n_neighb)
         strides_neighbour += list(n_neighb)
@@ -89,6 +86,165 @@ def get_frame_neigbourlist(frames,nocenters):
     strides_gradients = np.cumsum(strides_gradients)
 
     return Nneighbour,strides_gradients,slices_gradients
+
+class QuippyFeature(FeatureBase):
+    def __init__(self, frames, soap_params, fast_avg=False, chunk_len=100):
+        self.soap_params = soap_params
+        self.with_gradients = soap_params['grad']
+        global_species = soap_params['global_species']
+
+        self.species_mapping,self.atomic_types = {},{}
+        self.slices = {}
+        self.features, self.slices_gradients = {},{}
+
+        species = []
+        for iframe, frame in enumerate(frames):
+            numbers = frame.get_atomic_numbers()
+            self.atomic_types[iframe] = numbers
+            species.extend(numbers)
+        species = np.array(species)
+
+        Nfeature = get_Nsoap(global_species,soap_params['nmax'],
+                                soap_params['lmax'])
+
+        for sp in global_species:
+            ids = np.where(species == sp)[0]
+            self.species_mapping[sp] = np.concatenate([ids,np.arange(len(ids))])
+            nocenters = np.setdiff1d(global_species,[sp])
+
+            self.slices[sp],strides = get_frame_slices(frames,nocenters=nocenters, fast_avg=fast_avg)
+
+            Ncenter = strides[-1]
+
+            if self.with_gradients is False:
+                self.features[sp] = FeatureWithGrad(Ncenter=Ncenter, Nfeature=Nfeature, strides=strides, chunk_len=chunk_len)
+            elif self.with_gradients is True:
+                Nneighbour,strides_gradients,self.slices_gradients[sp] = get_frame_neigbourlist(frames,nocenters=nocenters)
+
+                self.features[sp] = FeatureWithGrad(Ncenter=Ncenter, Nfeature=Nfeature, strides=strides, Nneighbour=Nneighbour, strides_gradients=strides_gradients, has_gradients=True,chunk_len=chunk_len)
+
+        self.chunk_len = chunk_len
+        self.gradient_mapping = []
+        self.Nstructures = len(frames)
+        self.current_specie = None
+        self.strides_gradient_alternative = {1:[],6:[],8:[]}
+
+    def set_current_specie(self,specie):
+        if specie in self.features:
+            self.current_specie = specie
+
+    def get_data(self,specie=None,gradients=False):
+        if specie is None:
+            specie = self.current_specie
+        return self.features[specie].get_data(gradients)
+
+    def get_reduced_data_slice(self,specie=None,gradients=False):
+        if specie is None:
+            specie = self.current_specie
+        return self.features[specie].get_reduced_data_slice(gradients)
+
+    def get_iterator(self,specie=None,gradients=False):
+        if specie is None:
+            specie = self.current_specie
+
+        # print '##############  ',specie,gradients
+        # global_rep_slice = self.features[specie].get_reduced_data_slice(gradients)
+        # strides = self.features[specie].get_strides(gradients)
+        # print self.features[specie].get_data(gradients).shape
+        # print strides.shape,strides.min(),strides.max()
+        # print global_rep_slice
+
+        for feat in self.features[specie].get_iterator(gradients):
+            # global_rep_slice = feat.get_reduced_data_slice(gradients)
+            # strides = feat.get_strides(gradients)
+            # print '##############12321  '
+            # print feat.get_data(gradients).shape
+            # print strides.shape,strides.min(),strides.max()
+            # print global_rep_slice
+            yield feat
+
+
+    def insert(self, iframe, quippy_results):
+        quippy_rep = quippy_results['descriptor']
+        quippy_grad = quippy_results['grad']
+        grad_mapping = quippy_results['grad_index_0based']
+        atom_mapping = quippy_results['descriptor_index_0based'].flatten()
+        numbers = self.atomic_types[iframe]
+
+        grad = {}
+        for sp in np.unique(numbers):
+            grad[sp] = None
+
+
+        if self.with_gradients is True:
+            desc_ids = np.unique(grad_mapping[:,0])
+            tmp = {}
+            st = 0
+            for desc_id in zip(desc_ids):
+                atom_grad_id = atom_mapping[desc_id]
+                grad_atom_ids = np.where(grad_mapping[:,1] == atom_grad_id)[0]
+
+                nd = st + len(grad_atom_ids)
+
+                self.gradient_mapping.append([])
+                tmp[atom_grad_id] = quippy_grad[grad_atom_ids]
+                st += nd
+
+            for sp in np.unique(numbers):
+                ids = np.sort(np.where(numbers == sp)[0])
+                for idx in ids:
+                    aa = tmp[idx]
+                    self.strides_gradient_alternative[sp].append(aa.shape[0])
+                grad[sp] = np.concatenate([tmp[idx] for idx in ids], axis=0)
+
+        for sp in np.unique(numbers):
+            ids = np.where(numbers == sp)[0]
+
+            self.features[sp].insert(
+                    self.slices[sp][iframe], quippy_rep[ids],
+                    self.slices_gradients[sp][iframe], grad[sp]
+            )
+
+    def extract_pseudo_input(self, ids_pseudo_input, specie=None):
+        if specie is None:
+            specie = self.current_specie
+        return self.features[specie].extract_pseudo_input(ids_pseudo_input)
+
+    def extract_feature_selection(self,ids_selected_features):
+        if specie is None:
+            specie = self.current_specie
+        return self.features[specie].extract_feature_selection(ids_selected_features)
+
+    def get_nb_sample(self,specie=None,gradients=False):
+        if specie is None:
+            specie = self.current_specie
+        return self.features[specie].get_nb_sample(gradients)
+
+    def get_nb_sample(self,specie=None,gradients=False):
+        if specie is None:
+            specie = self.current_specie
+        return self.features[specie].get_nb_sample(gradients)
+
+    def get_nb_environmental_elements(self,specie=None,gradients=False):
+        if specie is None:
+            specie = self.current_specie
+        return self.features[specie].get_nb_environmental_elements(gradients)
+
+    def get_strides(self,specie=None,gradients=False):
+        if specie is None:
+            specie = self.current_specie
+        return self.features[specie].get_strides(gradients)
+
+    def get_chunk_nb(self,specie=None,gradients=False):
+        if specie is None:
+            specie = self.current_specie
+        return self.features[specie].get_chunk_nb(gradients)
+
+    def set_chunk_len(self,chunk_len):
+        for sp in self.features:
+            self.features[sp].set_chunk_len(chunk_len)
+            self.chunk_len = self.features[sp].chunk_len
+
 
 class RawSoapQUIP(AtomicDescriptorBase):
     def __init__(self,global_species=None,nocenters=None,rc=None, nmax=None,
@@ -111,7 +267,7 @@ class RawSoapQUIP(AtomicDescriptorBase):
         params.update(**self.soap_params)
         return params
 
-    def get_neigbourlist(self,frame):
+    def compute_neigbourlist(self,frame):
         frame = ase2qp(frame)
         frame.set_cutoff(self.soap_params['rc'])
         frame.calc_connect()
@@ -119,13 +275,7 @@ class RawSoapQUIP(AtomicDescriptorBase):
 
     def transform(self,X):
 
-        frames = map(self.get_neigbourlist,X)
-
-        grad = self.soap_params['grad']
-        slices,strides = get_frame_slices(frames,nocenters=self.soap_params['nocenters'], fast_avg=self.fast_avg)
-
-        Nneighbour,strides_gradients,slices_gradients = get_frame_neigbourlist(frames,nocenters=self.soap_params['nocenters'])
-        Nenv = strides[-1]
+        frames = map(self.compute_neigbourlist,X)
 
         soapstr = Template(' '.join(['average=F normalise=T soap cutoff_dexp=$cutoff_dexp cutoff_rate=$cutoff_rate ',
                             'cutoff_scale=$cutoff_scale central_reference_all_species=F',
@@ -133,41 +283,26 @@ class RawSoapQUIP(AtomicDescriptorBase):
                             'cutoff=$rc cutoff_transition_width=$cutoff_transition_width n_max=$nmax l_max=$lmax',
                             'n_species=$nspecies species_Z=$species n_Z=$ncentres Z=$centres']))
 
-        Nsoap = get_Nsoap(self.soap_params['global_species'],self.soap_params['nmax'],
-                          self.soap_params['lmax'])
-
+        slices,strides = get_frame_slices(frames,nocenters=self.soap_params['nocenters'], fast_avg=self.fast_avg)
         Nframe = len(frames)
 
         if self.is_sparse:
             soaps = lil_matrix((Nenv,Nsoap),dtype=np.float64)
         else:
-            feature = DenseFeature(Nenv,Nsoap,strides,Nneighbour,strides_gradients,with_gradients=grad)
+            soaps = QuippyFeature(frames, self.soap_params, fast_avg=self.fast_avg)
 
 
         for iframe in tqdm_cs(range(Nframe),desc='RawSoap',leave=True,disable=self.disable_pbar):
             result = get_rawsoap(frames[iframe],soapstr,**self.soap_params)
-            soap = result['descriptor']
-            inp = dict(iframe=iframe, slice_representations=slices[iframe],
-                        representations=result['descriptor'])
-            if grad is True:
-                neighbourlist = []
-                neigh_ids = result['grad_index_0based']
-                for ii in range(soap.shape[0]):
-                    ii_grads = np.where(neigh_ids[:,0] == ii)[0]
-                    neighbourlist.append(neigh_ids[ii_grads,1])
-                inp.update(**dict(
-                    neighbourlist=neighbourlist,
-                    slice_gradients=slices_gradients[iframe],
-                    gradients=result['grad']))
-
-            if self.fast_avg:
-                soap = np.mean(soap,axis=0)
 
             if self.is_sparse:
+                soap = result['descriptor']
+                if self.fast_avg:
+                    soap = np.mean(soap,axis=0)
                 soap[np.abs(soap)<1e-13] = 0
                 soaps[slices[iframe]] = lil_matrix(soap)
             else:
-                feature.insert(**inp)
+                soaps.insert(iframe,result)
 
         if self.is_sparse:
             soaps = soaps.tocsr(copy=False)
@@ -175,7 +310,7 @@ class RawSoapQUIP(AtomicDescriptorBase):
         self.slices = slices
         self.strides = strides
 
-        return feature
+        return soaps
 
     def pack(self):
         state = dict(soap_params=self.soap_params,is_sparse=self.is_sparse,
