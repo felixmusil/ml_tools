@@ -5,7 +5,7 @@ from scipy.sparse import lil_matrix,csr_matrix
 import re
 from string import Template
 from ..utils import tqdm_cs
-from .utils import get_chunks,get_frame_slices
+from .utils import get_chunks,get_frame_slices,get_frame_neigbourlist
 from .feature import DenseFeature,FeatureWithGrad
 
 def ase2qp(aseatoms):
@@ -57,36 +57,6 @@ def get_rawsoap(frame,soapstr,nocenters, global_species, rc, nmax, lmax,awidth,
 
     return desc.calc(frame, grad=grad)
 
-def get_frame_neigbourlist(frames,nocenters):
-    Nneighbour = 0
-    strides_neighbour = []
-    strides_gradients = [0]
-    for frame in frames:
-        # include centers too wit +1
-        numbers = frame.get_atomic_numbers()
-        n_neighb = frame.get_array('n_neighb')+1
-        mask = np.zeros(numbers.shape,dtype=bool)
-
-        for sp in nocenters:
-            mask = np.logical_or(mask, numbers == sp)
-        mask = np.logical_not(mask)
-
-        n_neighb = n_neighb[mask]
-        Nneighbour += np.sum(n_neighb)
-        strides_neighbour += list(n_neighb)
-        strides_gradients += [np.sum(n_neighb)]
-
-    strides_gradients = np.cumsum(strides_gradients)
-    slices_gradients = []
-    for st,nd in zip(strides_gradients[:-1],strides_gradients[1:]):
-        slices_gradients.append(slice(st,nd))
-
-    strides_gradients = [0]+strides_neighbour*3
-
-    strides_gradients = np.cumsum(strides_gradients)
-
-    return Nneighbour,strides_gradients,slices_gradients
-
 
 class RawSoapQUIP(AtomicDescriptorBase):
     def __init__(self,global_species=None,nocenters=None,rc=None, nmax=None,
@@ -132,8 +102,7 @@ class RawSoapQUIP(AtomicDescriptorBase):
         Nfeature = get_Nsoap(global_species,soap_params['nmax'],
                                 soap_params['lmax'])
 
-        self.slices,strides = get_frame_slices(frames,nocenters=nocenters, fast_avg=fast_avg)
-        Ncenter = strides[-1]
+        Ncenter,self.slices,strides = get_frame_slices(frames,nocenters=nocenters, fast_avg=fast_avg)
 
         if with_gradients is False:
                 features = FeatureWithGrad(Ncenter=Ncenter, Nfeature=Nfeature, strides=strides, chunk_len=chunk_len,hyperparams=soap_params)
@@ -185,7 +154,7 @@ class RawSoapQUIP(AtomicDescriptorBase):
                             'cutoff=$rc cutoff_transition_width=$cutoff_transition_width n_max=$nmax l_max=$lmax',
                             'n_species=$nspecies species_Z=$species n_Z=$ncentres Z=$centres']))
 
-        slices,strides = get_frame_slices(frames,nocenters=self.soap_params['nocenters'], fast_avg=self.fast_avg)
+        Ncenter,slices,strides = get_frame_slices(frames,nocenters=self.soap_params['nocenters'], fast_avg=self.fast_avg)
         Nframe = len(frames)
 
         if self.is_sparse:
