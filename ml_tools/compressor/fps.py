@@ -37,7 +37,7 @@ class FPSFilter(BaseEstimator,TransformerMixin):
             x = X
 
         if dry_run and isinstance(X,dict):
-            Nselect = x['feature_matrix'].shape[0]
+            Nselect = len(X['strides'])-1
         elif dry_run:
             Nselect = x.shape[0]
         else:
@@ -66,17 +66,45 @@ class FPSFilter(BaseEstimator,TransformerMixin):
             # at prediction time it should do nothing to the
             # new samples
             self.trained = False
-            return X[self.selected_ids[:self.Nselect],:]
+            if isinstance(X,dict):
+                strides = X['strides']
+                Xmat = X['feature_matrix']
+                M = Xmat.shape[1]
+                N = 0
+                sel_slices = []
+                new_strides = [0]
+                for idx in self.selected_ids[:self.Nselect]:
+                    sel_slices.append(slice(strides[idx],strides[idx+1]))
+                    N += strides[idx+1] - strides[idx]
+                    new_strides.append(strides[idx+1] - strides[idx])
+                new_strides = np.cumsum(new_strides)
+                Xmat_sel = np.zeros((N,M))
+                for sel_slice,st,nd in zip(sel_slices,new_strides[:-1],new_strides[1:]):
+                    Xmat_sel[st:nd] = Xmat[sel_slice]
+                return dict(feature_matrix=Xmat_sel,strides=new_strides)
+            else:
+                return X[self.selected_ids[:self.Nselect],:]
         elif self.act_on == 'feature':
-            return X[:,self.selected_ids[:self.Nselect]]
+            if isinstance(X,dict):
+                strides = X['strides']
+                Xmat = X['feature_matrix']
+                Xmat_new = Xmat[:,self.selected_ids[:self.Nselect]]
+                return dict(feature_matrix=Xmat_new,strides=new_strides)
+            else:
+                return X[:,self.selected_ids[:self.Nselect]]
         elif self.act_on == 'feature A transform':
-            return np.dot(X[:,self.selected_ids[:self.Nselect]],self.transformation_mat)
+            if isinstance(X,dict):
+                strides = X['strides']
+                Xmat = X['feature_matrix']
+                Xmat_new = np.dot(Xmat[:,self.selected_ids[:self.Nselect]],self.transformation_mat)
+                return dict(feature_matrix=Xmat_new,strides=new_strides)
+            else:
+                return np.dot(X[:,self.selected_ids[:self.Nselect]],self.transformation_mat)
         else:
             return X
 
     def plot(self):
         plt.semilogy(self.min_distance2,label='FPSFilter '+self.act_on)
-
 
 
 def do_fps_feature(x=None, d=0,init=0,disable_pbar=True,kernel=None):
