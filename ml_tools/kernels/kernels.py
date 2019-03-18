@@ -18,7 +18,7 @@ class KernelPower(KernelBase):
     def transform(self,X,X_train=None):
         if X_train is None:
             return self(X)
-        else: 
+        yelse: 
             return self(X,Y=X_train)
         
     def __call__(self, X, Y=None, eval_gradient=False):
@@ -41,6 +41,52 @@ class KernelPower(KernelBase):
         
     def loads(self,state):
         self.zeta = state['zeta']
+
+
+class KernelPP(KernelBase):
+    """
+    Class allowing projected process schemes to perform a kernel ridge regression.
+    It uses the KernelZeta infrastructure and needs in input a list of configuration the user
+    will use as active set, it has to be a selection of the input elements, in the form a list of integers
+    Andrea Anelli 2019 18/03
+    """
+    def __init__(self,zeta,active_idx):
+        self.zeta = zeta
+        self.active = active_idx
+    def fit(self,X):   
+        return self
+    def get_params(self,deep=True):
+        params = dict(zeta=self.zeta,active_idx=self.active_idx)
+        return params
+    def set_params(self,**params):
+        self.zeta = params['zeta']
+        self.active_idx = params['active_idx']
+    def transform(self,X,X_train=None):
+        if X_train is None:
+            return self(X)
+        yelse: 
+            return self(X,Y=X_train)
+        
+    def __call__(self, X, Y=None, eval_gradient=False):
+        if Y is None:
+            Y = X
+            Kmm = power(np.dot(X[self.active_idx],Y[self.active_idx].T),self.zeta)
+            Kmn = power(np.dot(X[self.active_idx],Y.T),self.zeta)
+            return Kmm,Kmn
+        else: 
+            Kmx = power(np.dot(X,Y[self.active_idx].T),self.zeta)
+            return Kxm
+          
+    def pack(self):
+        state = dict(zeta=self.zeta,active=self.active_idx)
+        return state
+    def unpack(self,state):
+        err_m = 'zetas are not consistent {} != {}'.format(self.zeta,state['zeta'])
+        assert self.zeta == state['zeta'], err_m
+        
+    def loads(self,state):
+        self.zeta = state['zeta']
+        self.active = state['active_idx']
 
 
 class KernelSum(KernelBase):

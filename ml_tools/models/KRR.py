@@ -89,6 +89,94 @@ class TrainerCholesky(TrainerBase):
         self.memory_eff = state['memory_efficient']
 
 
+class KRR_PP(RegressorBase):
+    """
+    Class which uses Kernel_PP to perform a projected process KRR 
+    Andrea Anelli 2019 18/03
+    """
+    _pairwise = True
+    
+    def __init__(self,jitter,delta,trainer):
+        # Weights of the krr model
+        self.alpha = None
+        self.jitter = jitter
+        self.trainer = trainer
+        self.delta = delta
+    
+    def fit(self,kernelMM,kernelMN,y):
+        '''Train the krr model with trainKernel and trainLabel.'''
+        
+        reg = np.dot(KernelMN,KernelMN.T)*self.jitter
+        ym  = np.dot(KernelMN,y)
+        self.alpha = self.trainer.fit(self.delta**2*kernelMM,ym,jitter=reg)
+        
+    def predict(self,kernel):
+        '''kernel.shape is expected as (nPred,nTrain)'''
+        #kernel = self.kernel(X,self.X_train)
+        y_pp = np.dot(self.delta**2*kernel,self.alpha.flatten()).reshape((-1))
+        return y_pp
+    def get_params(self,deep=True):
+        return dict(sigma=self.jitter ,trainer=self.trainer,delta=self.delta)
+        
+    def set_params(self,params,deep=True):
+        self.jitter  = params['jitter']
+        self.trainer = params['trainer']
+        self.delta = params['delta']
+        self.alpha = None
+
+    def pack(self):
+        state = dict(weights=self.alpha,trainer=self.trainer.pack(),
+                     jitter=self.jitter,delta=self.delta )
+        return state
+    def unpack(self,state):
+        self.alpha = state['weights']
+        self.delta = state['delta']
+        self.trainer.unpack(state['trainer'])
+        err_m = 'jitter are not consistent {} != {}'.format(self.jitter ,state['jitter'])
+        assert self.jitter  == state['jitter'], err_m
+    def loads(self,state):
+        self.alpha = state['weights']
+        self.trainer.loads(state['trainer'])
+        self.jitter  = state['jitter']
+        self.delta = state['delta']
+
+class TrainerPP(TrainerBase):
+    def __init__(self,memory_efficient):
+        self.memory_eff = memory_efficient
+    def fit(self,kernel,y,jitter):
+        """ len(y) == len(reg)"""
+        reg = jitter
+        if self.memory_eff is True:
+            kernel[np.diag_indices_from(kernel)] += reg
+            kernel, lower = cho_factor(kernel, lower=False, overwrite_a=True, check_finite=False)
+            L = kernel
+            alpha = cho_solve((L, lower), y ,overwrite_b=False).reshape((1,-1))
+        if self.memory_eff == 'autograd':
+            alpha = np.linalg.solve(kernel+np.diag(reg), y).reshape((1,-1))
+        else:
+            L = np.linalg.cholesky(kernel+np.diag(reg))
+            z = solve_triangular(L,y,lower=True)
+            alpha = solve_triangular(L.T,z,lower=False,overwrite_b=True).reshape((1,-1))
+       
+        return alpha
+
+    def get_params(self,deep=True):
+        return dict(memory_efficient=self.memory_eff)
+    
+    def pack(self):
+        state = dict(memory_efficient=self.memory_eff)
+        return state
+    def unpack(self,state):
+        err_m = 'memory_eff are not consistent {} != {}'.format(self.memory_eff,state['memory_efficient'])
+        assert self.memory_eff == state['memory_efficient'], err_m
+    def loads(self,state):
+        self.memory_eff = state['memory_efficient']
+
+
+
+
+
+
 class KRRFastCV(RegressorBase):
     """ 
     taken from:

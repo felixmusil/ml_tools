@@ -1,2 +1,2 @@
-from .kernels import KernelPower,KernelSparseSoR,KernelSum
+from .kernels import KernelPower,KernelSparseSoR,KernelSum,KernelPP
 
