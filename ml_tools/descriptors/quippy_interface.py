@@ -105,44 +105,62 @@ class RawSoapQUIP(AtomicDescriptorBase):
         Ncenter,self.slices,strides = get_frame_slices(frames,nocenters=nocenters, fast_avg=fast_avg)
 
         if with_gradients is False:
-                features = FeatureWithGrad(Ncenter=Ncenter, Nfeature=Nfeature, strides=strides, chunk_len=chunk_len,hyperparams=soap_params)
+                features = FeatureWithGrad(Ncenter=Ncenter, Nfeature=Nfeature, chunk_len=chunk_len,hyperparams=soap_params)
         elif with_gradients is True:
             Nneighbour,strides_gradients,self.slices_gradients = get_frame_neigbourlist(frames,nocenters=nocenters)
 
-            features = FeatureWithGrad(Ncenter=Ncenter, Nfeature=Nfeature, strides=strides, Nneighbour=Nneighbour, strides_gradients=strides_gradients, has_gradients=True,chunk_len=chunk_len,hyperparams=soap_params)
+            features = FeatureWithGrad(Ncenter=Ncenter, Nfeature=Nfeature,  Nneighbour=Nneighbour, has_gradients=True,chunk_len=chunk_len,hyperparams=soap_params)
 
         return features
 
     def insert_to(self, features, iframe, quippy_results):
         quippy_rep = quippy_results['descriptor']
-        grad,grad_species = None,None
-        map_grad2desc = None
+        quippy_grad,grad_species = None,None
+        grad_mapping = None
+        desc_mapping = np.zeros((quippy_rep.shape[0],1))
         atom_mapping = quippy_results['descriptor_index_0based'].flatten()
         species = self.atomic_types[iframe]
 
         if 'grad' in quippy_results:
             quippy_grad = quippy_results['grad']
             grad_mapping = quippy_results['grad_index_0based']
-            desc_ids = np.unique(grad_mapping[:,0])
-            map_grad2desc = np.zeros(quippy_grad.shape[0])
+            # pos_ids = np.unique(grad_mapping[:,1])
+            # map_grad2desc = np.zeros(quippy_grad.shape[0])
             grad_species = np.zeros(quippy_grad.shape[0])
-            grad = np.zeros(quippy_grad.shape)
-            st = 0
-            for desc_id in desc_ids:
-                atom_grad_id = atom_mapping[desc_id]
-                grad_atom_ids = np.where(grad_mapping[:,1] == atom_grad_id)[0]
-                nd = st + len(grad_atom_ids)
-                map_grad2desc[st:nd] = grad_mapping[grad_atom_ids,0]
-                grad_species[st:nd] = species[grad_mapping[grad_atom_ids,0]]
-                #grad_species[st:nd] = species[atom_grad_id]
-                grad[st:nd] = quippy_grad[grad_atom_ids]
-                st = nd
+            # grad_species_quippy = np.zeros(quippy_grad.shape[0])
+            # grad = np.zeros(quippy_grad.shape)
+            # st = 0
+            # for pos_id in pos_ids:
+            #     grad_atom_ids = np.where(grad_mapping[:,1] == pos_id)[0]
+            #     nd = st + len(grad_atom_ids)
+            #     map_grad2desc[st:nd] = grad_mapping[grad_atom_ids,0]
+            #     grad_species[st:nd] = species[atom_mapping[grad_mapping[grad_atom_ids,0]]]
+            #     #grad_species[st:nd] = species[atom_grad_id]
+            #     grad[st:nd] = quippy_grad[grad_atom_ids]
+            #     st = nd
+            for ii,idesc in enumerate(grad_mapping[:,0]):
+                grad_species[ii] = species[idesc]
 
         features.insert(
-                self.slices[iframe], quippy_rep, species,
-                self.slices_gradients[iframe], grad, grad_species,
-                map_grad2desc
+                self.slices[iframe], quippy_rep, species, desc_mapping,
+                self.slices_gradients[iframe], quippy_grad, grad_species,
+                grad_mapping
         )
+        # features.insert(
+        #         self.slices[iframe], quippy_rep, species,
+        #         self.slices_gradients[iframe], quippy_grad, grad_species,
+        #         map_grad2desc,grad_mapping,grad_species_quippy
+        # )
+        # features.insert(
+        #         self.slices[iframe], quippy_rep, species,
+        #         self.slices_gradients[iframe], grad, grad_species,
+        #         map_grad2desc,grad_mapping,grad_species_quippy
+        # )
+        # features.insert(
+        #         self.slices[iframe], quippy_rep, species,
+        #         self.slices_gradients[iframe], grad, grad_species,
+        #         map_grad2desc
+        # )
 
     def transform(self,X):
 

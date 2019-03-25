@@ -1,1 +1,1 @@
-from .KRR import KRR,KRRFastCV,TrainerCholesky
+from .KRR import KRR,KRRFastCV
