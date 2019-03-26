@@ -105,7 +105,8 @@ class RawSoapQUIP(AtomicDescriptorBase):
         Ncenter,self.slices,strides = get_frame_slices(frames,nocenters=nocenters, fast_avg=fast_avg)
 
         if with_gradients is False:
-                features = FeatureWithGrad(Ncenter=Ncenter, Nfeature=Nfeature, chunk_len=chunk_len,hyperparams=soap_params)
+            self.slices_gradients = [None] * len(frames)
+            features = FeatureWithGrad(Ncenter=Ncenter, Nfeature=Nfeature, chunk_len=chunk_len,hyperparams=soap_params)
         elif with_gradients is True:
             Nneighbour,strides_gradients,self.slices_gradients = get_frame_neigbourlist(frames,nocenters=nocenters)
 

@@ -6,3 +6,4 @@
 *.mod
 build*
 *-checkpoint.ipynb
+*.idx

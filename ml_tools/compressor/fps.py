@@ -35,9 +35,7 @@ class FPSFilter(BaseEstimator,TransformerMixin):
         elif isinstance(X,FeatureBase):
             gradients = False
             if gradients is False:
-                x = X.get_data()
-            elif gradients is True:
-                x = X.get_data(gradients=True)
+                x = X
 
             if is_feature_selection is True:
                 x = x.T
@@ -52,14 +50,14 @@ class FPSFilter(BaseEstimator,TransformerMixin):
             Nselect = x['feature_matrix'].shape[0]
         elif dry_run:
             if isinstance(X,FeatureBase):
-                Nselect = x.shape_rep[0]
+                Nselect = x.get_nb_sample(gradients)
             else:
                 Nselect = x.shape[0]
         else:
             Nselect = self.Nselect
 
         if self.precompute_kernel is True:
-            kernel = self.kernel(x)
+            kernel = self.kernel.transform(x)
             ifps, dfps = do_fps_kernel(kernel,d=Nselect,disable_pbar=self.disable_pbar)
         elif self.precompute_kernel is False:
             ifps, dfps = do_fps_feature(x,d=Nselect,kernel=self.kernel,disable_pbar=self.disable_pbar)

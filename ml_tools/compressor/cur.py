@@ -35,6 +35,7 @@ class CURFilter(BaseEstimator,TransformerMixin):
                 x[1] = X
 
             for sp in x:
+                print sp
                 self.selected_ids[sp] = do_CUR(x[sp],self.Nselect[sp],self.act_on,self.is_deterministic,self.seed)
             self.trained = True
         return self
@@ -68,7 +69,7 @@ class CURFilter(BaseEstimator,TransformerMixin):
 
 
 
-def do_CUR(X, Nsel, act_on='sample', is_deterministic=False,seed=10,verbose=False):
+def do_CUR(X, Nsel, act_on='sample', is_deterministic=False,seed=10,verbose=True):
     """ Apply CUR selection of Nsel rows or columns of the
     given covariance matrix. """
 

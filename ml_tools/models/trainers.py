@@ -8,7 +8,7 @@ class TrainerSoR(object):
         self.is_precomputed = False
         self.kernel = make_kernel(kernel_name,**kwargs)
         self.model_name = model_name
-
+        self.has_forces = False
     def precompute(self, y_train, X_train, X_pseudo, f_train=None, y_train_nograd=None, X_train_nograd=None):
         kernel = self.kernel
 
@@ -24,15 +24,18 @@ class TrainerSoR(object):
         Nr = Nr1 + Nr2
         if f_train is None:
             Ng = 0
+
         else:
             Ng = X_train.get_nb_sample(gradients=True)
             f = -f_train.reshape((-1,))
+            self.has_forces = True
 
         N = Nr + Ng * 3
 
         Y = np.zeros((N,))
         Y[:Nr] = y_train - Y_mean
-        Y[Nr:] = f
+        if self.has_forces is True:
+            Y[Nr:] = f
 
         KMM = np.zeros((M,M))
         KNM = np.zeros((N,M))
@@ -64,9 +67,10 @@ class TrainerSoR(object):
         Yp = self.Y.copy()
 
         KNMp[:Nr] /= lambdas[0]
-        KNMp[Nr:] /= lambdas[1]
         Yp[:Nr] /= lambdas[0]
-        Yp[Nr:] /= lambdas[1]
+        if self.has_forces is True:
+          KNMp[Nr:] /= lambdas[1]
+          Yp[Nr:] /= lambdas[1]
 
         if self.model_name == 'krr':
             model = KRR(jitter,self.Y_const, self.kernel, self.X_pseudo)
