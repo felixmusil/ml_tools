@@ -4,11 +4,13 @@ from ..base import np
 
 
 class TrainerSoR(object):
-    def __init__(self, model_name='krr', kernel_name='gap', **kwargs):
+    def __init__(self, model_name='krr', kernel_name='gap', representation=None, **kwargs):
         self.is_precomputed = False
         self.kernel = make_kernel(kernel_name,**kwargs)
         self.model_name = model_name
         self.has_forces = False
+        self.representation = representation
+        self.representation.disable_pbar = True
     def precompute(self, y_train, X_train, X_pseudo, f_train=None, y_train_nograd=None, X_train_nograd=None):
         kernel = self.kernel
 
@@ -73,7 +75,7 @@ class TrainerSoR(object):
           Yp[Nr:] /= lambdas[1]
 
         if self.model_name == 'krr':
-            model = KRR(jitter,self.Y_const, self.kernel, self.X_pseudo)
+            model = KRR(jitter,self.Y_const, self.kernel, self.X_pseudo, self.representation)
             K = self.KMM + np.dot(KNMp.T,KNMp)
             Y = np.dot(KNMp.T,Yp)
             model.fit(K,Y)

@@ -1,12 +1,14 @@
 # -*- coding: utf-8 -*-
 
 from ..base import np,sp
-from ..base import BaseEstimator,TransformerMixin,FeatureBase
+from ..base import CompressorBase
 from ..utils import tqdm_cs
 import matplotlib.pyplot as plt
 
-class FPSFilter(BaseEstimator,TransformerMixin):
+class FPSFilter(CompressorBase):
     def __init__(self,Nselect,kernel,act_on='sample',precompute_kernel=True,disable_pbar=True):
+        super(FPSFilter,self).__init__()
+
         self.Nselect = Nselect
         if isinstance(kernel, np.ndarray) is True or isinstance(kernel,np.memmap) is True:
             # give a matrix kernel
@@ -23,9 +25,15 @@ class FPSFilter(BaseEstimator,TransformerMixin):
         else:
             raise 'Wrong input: {}'.format(act_on)
 
+        self.transformation_mat = None
+        self.selected_ids = None
+        self.min_distance2 = None
+        self.trained = False
+
 
     def get_params(self,deep=True):
-        params = dict(Nselect=self.Nselect,kernel=self.kernel,act_on=self.act_on)
+        params = dict(Nselect=self.Nselect,kernel=self.kernel,act_on=self.act_on,precompute_kernel=self.precompute_kernel,
+        disable_pbar=self.disable_pbar)
         return params
 
     def fit(self,X,dry_run=False):
@@ -101,6 +109,17 @@ class FPSFilter(BaseEstimator,TransformerMixin):
     def plot(self):
         plt.semilogy(self.min_distance2,label='FPSFilter '+self.act_on)
 
+    def dumps(self):
+        state = {}
+        state['init_params'] = self.get_params()
+        state['data'] = dict(transformation_mat=self.transformation_mat,selected_ids=self.selected_ids,min_distance2=self.min_distance2,trained=self.trained)
+        return state
+
+    def loads(self,data):
+        self.transformation_mat = data['transformation_mat']
+        self.selected_ids = data['selected_ids']
+        self.min_distance2 = data['min_distance2']
+        self.trained = data['trained']
 
 
 def do_fps_feature(x=None, d=0,init=0,disable_pbar=True,kernel=None):

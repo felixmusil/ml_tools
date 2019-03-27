@@ -2,11 +2,18 @@ import os
 import pickle as pck
 from ..base import np,sp
 from scipy.sparse import save_npz,load_npz
+import importlib
 
 try:
   import ujson as json
 except:
   import json
+
+
+def get_class(modulename, classname):
+    module = importlib.import_module(module_name)
+    class_ = getattr(module, class_name)
+    return class_
 
 def check_dir(workdir):
     if not os.path.exists(workdir):
@@ -32,14 +39,13 @@ def load_json(fn):
     return data
 
 def dump_data(fn,metadata,data,is_sparse=False,compressed=False):
-    
     data_fn = os.path.join(os.path.dirname(fn),metadata['fn'])
     if is_sparse is False:
         np.save(data_fn,data)
     else:
         save_npz(data_fn,data,compressed=compressed)
     dump_json(fn,metadata)
-    
+
 def load_data(fn,mmap_mode='r',is_sparse=False):
     metadata = load_json(fn)
     data_fn = os.path.join(os.path.dirname(fn),metadata['fn'])
@@ -48,8 +54,6 @@ def load_data(fn,mmap_mode='r',is_sparse=False):
     else:
         data = load_npz(data_fn)
     return metadata,data
-
-
 
 def check_file(fn):
     return os.path.isfile(fn)

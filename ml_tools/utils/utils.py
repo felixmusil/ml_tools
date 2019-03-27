@@ -14,13 +14,14 @@ def is_notebook():
             return False  # Other type (?)
     except NameError:
         return False      # Probably standard Python interpreter
- 
+
 if is_notebook():
     from tqdm import tqdm_notebook as tqdm_cs
     ascii = False
 else:
     from tqdm import tqdm as tqdm_cs
     ascii = True
+
 
 def get_r2(y_pred,y_true):
     weight = 1
@@ -55,7 +56,7 @@ def get_score(ypred,y):
         scores[k] = func(ypred,y)
     return scores
 
-  
+
 def make_new_dir(fn):
     if not os.path.exists(fn):
         os.makedirs(fn)
@@ -99,4 +100,4 @@ def is_autograd_instance(array):
         return True
     else:
         return False
-    
+

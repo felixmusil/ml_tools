@@ -2,7 +2,8 @@
 from ..base import KernelBase,FeatureBase
 from ..base import np,sp
 from ..math_utils import power,average_kernel
-from ..math_utils.power_kernel import (sum_power_no_species,derivative_sum_power_no_species,sum_power_diff_species,derivative_sum_power_diff_species)
+from ..math_utils.power_kernel import (sum_power_no_species,derivative_sum_power_no_species,sum_power_diff_species,derivative_sum_power_diff_species,sum_power_no_species_self,
+sum_power_diff_species_self)
 from ..utils import tqdm_cs,is_autograd_instance
 #from ..math_utils.basic import power,average_kernel
 from scipy.sparse import issparse
@@ -126,10 +127,12 @@ class KernelSum(KernelBase):
     def set_kernel_func(self):
         if self.kernel_type == 'power':
             self.k = sum_power_no_species
+            self.k_self = sum_power_no_species_self
             self.dk_dr = derivative_sum_power_no_species
             self.zeta = self.kwargs['zeta']
         if self.kernel_type == 'power_gap':
             self.k = sum_power_diff_species
+            self.k_self = sum_power_diff_species_self
             self.dk_dr = derivative_sum_power_diff_species
             self.zeta = self.kwargs['zeta']
 
@@ -139,7 +142,7 @@ class KernelSum(KernelBase):
         params = dict(kernel_type=self.kernel_type,kwargs=self.kwargs)
         return params
     def set_params(self,**params):
-        self.kernel_type = params['kerkernel_typenel']
+        self.kernel_type = params['kernel_type']
         self.kwargs = params['kwargs']
 
         self.set_kernel_func()
@@ -156,7 +159,10 @@ class KernelSum(KernelBase):
 
         if eval_gradient[0] is False:
             kernel = np.ones((N,M))
-            self.k(kernel,self.zeta,Xi,Xids,Yi,Yids)
+            if is_square is True:
+                self.k_self(kernel,self.zeta,Xi,Xids)
+            elif is_square is False:
+                self.k(kernel,self.zeta,Xi,Xids,Yi,Yids)
         elif eval_gradient[0] is True:
             kernel = np.ones((N,3,M))
             dXi_dr = X.get_data(True)

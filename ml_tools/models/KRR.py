@@ -1,4 +1,4 @@
-from ..base import TrainerBase,RegressorBase
+from ..base import TrainerBase,RegressorBase,FeatureBase
 from ..base import np,sp
 try:
     from autograd.scipy.linalg import cho_factor,cho_solve,solve_triangular
@@ -8,13 +8,15 @@ except:
 class KRR(RegressorBase):
     _pairwise = True
 
-    def __init__(self,jitter,mean=None,kernel=None,X_train=None):
+    def __init__(self,jitter,mean=None,kernel=None,X_train=None,representation=None):
         # Weights of the krr model
         self.alpha = None
         self.jitter = jitter
         self.kernel = kernel
         self.X_train = X_train
         self.mean = mean
+        self.representation = representation
+
     def fit(self,kernel,y):
         '''Train the krr model with trainKernel and trainLabel.'''
         reg = np.ones((kernel.shape[0],))*self.jitter
@@ -22,11 +24,13 @@ class KRR(RegressorBase):
         self.alpha = alpha
 
     def predict(self,X,eval_gradient=False):
+        if isinstance(X,FeatureBase) is False:
+            X = self.representation.transform(X)
         kernel = self.kernel.transform(X,self.X_train,(eval_gradient,False))
         if eval_gradient is False:
             return self.mean + np.dot(kernel,self.alpha).reshape((-1))
         else:
-            
+
             return np.dot(kernel,self.alpha).reshape((-1,3))
 
     def get_params(self,deep=True):

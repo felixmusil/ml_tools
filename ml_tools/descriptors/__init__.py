@@ -6,7 +6,6 @@ try:
 except ImportError:
     warnings.warn("Could not import internal descriptor",category=ImportWarning)
     has_internal_soap = False
-
 try:
     from .quippy_interface import RawSoapQUIP
     has_quippy = True

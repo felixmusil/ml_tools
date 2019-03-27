@@ -18,6 +18,18 @@ def sum_power_no_species(out, zeta, desc1, ids1, desc2, ids2):
             out[iframe1,iframe2] += power_kernel(desc1[idesc1],desc2[idesc2],zeta)
 
 @njit(parallel=True)
+def sum_power_no_species_self(out, zeta, desc1, ids1):
+    N = ids1.shape[0]
+    for idesc1 in prange(N):
+        iframe1, sp1 = ids1[idesc1]
+        out[iframe1,iframe1] += power_kernel(desc1[idesc1],desc1[idesc1],zeta)
+        for idesc2 in prange(idesc1+1,N):
+            iframe2, sp2 = ids1[idesc2]
+            tmp = power_kernel(desc1[idesc1],desc1[idesc2],zeta)
+            out[iframe1,iframe2] += tmp
+            out[iframe2,iframe1] += tmp
+
+@njit(parallel=True)
 def derivative_sum_power_no_species(out, zeta, desc1, grad1, ids1, desc2, ids2):
     N = ids1.shape[0]
     M = ids2.shape[0]
@@ -40,6 +52,19 @@ def sum_power_diff_species(out, zeta, desc1, ids1, desc2, ids2):
             iframe2, sp2 = ids2[idesc2]
             if sp1 != sp2: continue
             out[iframe1,iframe2] += power_kernel(desc1[idesc1],desc2[idesc2],zeta)
+
+@njit(parallel=True)
+def sum_power_diff_species_self(out, zeta, desc1, ids1):
+    N = ids1.shape[0]
+    for idesc1 in prange(N):
+        iframe1, sp1 = ids1[idesc1]
+        out[iframe1,iframe1] += power_kernel(desc1[idesc1],desc1[idesc1],zeta)
+        for idesc2 in prange(idesc1+1,N):
+            iframe2, sp2 = ids1[idesc2]
+            if sp1 != sp2: continue
+            tmp = power_kernel(desc1[idesc1],desc1[idesc2],zeta)
+            out[iframe1,iframe2] += tmp
+            out[iframe2,iframe1] += tmp
 
 @njit(parallel=True)
 def derivative_sum_power_diff_species(out, zeta, desc1, grad1, ids1, desc2, ids2):
