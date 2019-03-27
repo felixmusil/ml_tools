@@ -1,5 +1,6 @@
 from sklearn.base import BaseEstimator, RegressorMixin,TransformerMixin
 import os
+import importlib
 
 try:
     import autograd.numpy as np
@@ -8,7 +9,7 @@ except:
     import numpy as np
     import scipy as sp
 
-from .utils import dump_json, load_json
+
 
 CURRENT_VERSION = '1'
 
@@ -34,6 +35,10 @@ def is_npy_filename(fn):
     else:
         return False
 
+def get_class(module_name, class_name):
+    module = importlib.import_module(module_name)
+    class_ = getattr(module, class_name)
+    return class_
 
 def obj2dict_1(cls,state):
     VERSION = '1'
@@ -74,51 +79,55 @@ class BaseIO(object):
     def __init__(self):
         super(BaseIO,self).__init__()
 
-    def to_dict(self,version=CURRENT_VERSION):
-        state = self.dumps()
+    def to_dict(self,obj=None,version=CURRENT_VERSION):
+        if obj is None:
+            obj = self
+        state = obj.dumps()
 
-        for k,v in state['init_params'].items():
-            if is_valid_object_dict[version](v) is True:
-                state['init_params'][k] = self.from_dict(v)
+        for name,entry in state.items():
+            if isinstance(entry, dict):
+                for k,v in entry.items():
+                    if isinstance(v, BaseIO) is True:
+                         state[name][k] = self.to_dict(v,version)
 
-        for k,v in state['data'].items():
-            if is_valid_object_dict[version](v) is True:
-                state['data'][k] = self.from_dict(v)
-
-        data = obj2dict[version](self.__class__, state)
+        data = obj2dict[version](obj.__class__, state)
         return data
 
     def from_dict(self,data):
         version = data['version']
 
-        for k,v in data['init_params'].items():
-            if is_valid_object_dict[version](v) is True:
-                data['init_params'][k] = self.from_dict(v)
-
-        for k,v in data['data'].items():
-            if is_valid_object_dict[version](v) is True:
-                data['data'][k] = self.from_dict(v)
+        for name,entry in data.items():
+            if isinstance(entry, dict):
+                for k,v in entry.items():
+                    if is_valid_object_dict[version](v) is True:
+                         data[name][k] = self.from_dict(v)
 
         obj = dict2obj[version](data)
         return obj
 
     def to_file(self,fn,version=CURRENT_VERSION):
+        from .utils import dump_json
         fn = os.path.abspath(fn)
         filename , file_extension = os.path.splitext(fn)
         if file_extension == '.json':
-            data = self.to_dict(fn,version)
-            self._dump_npy(data)
+            data = self.to_dict(version=version)
+            self._dump_npy(fn,data)
             dump_json(fn,data)
         else:
             raise NotImplementedError('Unknown file extention: {}'.format(file_extension))
 
     def from_file(self,fn):
+        from .utils import  load_json
         fn = os.path.abspath(fn)
         filename , file_extension = os.path.splitext(fn)
         if file_extension == '.json':
             data = load_json(fn)
-            self._load_npy(data)
-            return self.from_dict(data)
+            version = data['version']
+            if is_valid_object_dict[version](data):
+                self._load_npy(data)
+                return self.from_dict(data)
+            else:
+                raise RuntimeError('The file: {}; does not contain a valid dictionary representation of an object.'.format(fn))
 
         else:
             raise NotImplementedError('Unknown file extention: {}'.format(file_extension))
@@ -127,7 +136,7 @@ class BaseIO(object):
         filename , file_extension = os.path.splitext(fn)
         for k,v in data.items():
             if isinstance(v,dict):
-                self._dump_npy(v)
+                self._dump_npy(fn, v)
             elif is_large_array(v) is True:
                 v_fn = filename + '-{}'.fomat(k) + '.npy'
                 v_bfn = os.path.basename(v_fn)
@@ -138,13 +147,11 @@ class BaseIO(object):
                 data[k] = v.tolist()
 
     def _load_npy(self,data):
-        filename , file_extension = os.path.splitext(fn)
         for k,v in data.items():
             if isinstance(v,dict):
-                self._dump_npy(v)
+                self._load_npy(v)
             elif is_npy_filename(v) is True:
-                array = np.load(v)
-                data[k] = array
+                data[k] = np.load(v)
 
 
 

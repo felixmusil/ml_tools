@@ -22,7 +22,6 @@ else:
     from tqdm import tqdm as tqdm_cs
     ascii = True
 
-
 def get_r2(y_pred,y_true):
     weight = 1
     sample_weight = None

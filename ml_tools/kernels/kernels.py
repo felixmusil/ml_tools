@@ -120,6 +120,9 @@ class KernelPower(KernelBase):
 
 class KernelSum(KernelBase):
     def __init__(self,kernel_type,**kwargs):
+        if 'kwargs' in kwargs:
+            kwargs = kwargs['kwargs']
+
         self.kwargs = kwargs
         self.kernel_type = kernel_type
         self.set_kernel_func()
@@ -141,11 +144,6 @@ class KernelSum(KernelBase):
     def get_params(self,deep=True):
         params = dict(kernel_type=self.kernel_type,kwargs=self.kwargs)
         return params
-    def set_params(self,**params):
-        self.kernel_type = params['kernel_type']
-        self.kwargs = params['kwargs']
-
-        self.set_kernel_func()
 
     def __call__(self, X, Y, is_square=False, eval_gradient=(False,False)):
 
@@ -189,10 +187,13 @@ class KernelSum(KernelBase):
         return K_diag
 
     def dumps(self):
-        state = self.get_params()
+        state = {}
+        state['init_params'] = self.get_params()
+        state['data'] = {}
         return state
+
     def loads(self,state):
-        self.set_params(state)
+        pass
 
 
 

@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 from ..base import np,sp
-from ..base import CompressorBase
+from ..base import CompressorBase,FeatureBase
 from ..utils import tqdm_cs
 import matplotlib.pyplot as plt
 

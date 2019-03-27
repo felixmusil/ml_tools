@@ -1,8 +1,7 @@
 import os
 import pickle as pck
-from ..base import np,sp
+from ..base import np,sp,BaseIO,CURRENT_VERSION
 from scipy.sparse import save_npz,load_npz
-import importlib
 
 try:
   import ujson as json
@@ -10,10 +9,15 @@ except:
   import json
 
 
-def get_class(modulename, classname):
-    module = importlib.import_module(module_name)
-    class_ = getattr(module, class_name)
-    return class_
+def dump_obj(fn,instance,version=CURRENT_VERSION):
+    if isinstance(instance, BaseIO):
+        instance.to_file(fn,version)
+    else:
+        raise RuntimeError('The instance does not inherit from BaseIO: {}'.format(obj.__class__.__mro__))
+
+def load_obj(fn):
+    return BaseIO().from_file(fn)
+
 
 def check_dir(workdir):
     if not os.path.exists(workdir):
