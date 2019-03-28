@@ -1,16 +1,54 @@
 from .KRR import KRR
 from ..kernels.kernels import make_kernel
 from ..base import np
-
+from ..utils import return_deepcopy
 
 class TrainerSoR(object):
-    def __init__(self, model_name='krr', kernel_name='gap', representation=None, **kwargs):
-        self.is_precomputed = False
+    def __init__(self, model_name='krr', kernel_name='gap', representation=None,is_precomputed=False,has_forces=False, **kwargs):
+        self.is_precomputed = is_precomputed
+        self.kwargs = kwargs
         self.kernel = make_kernel(kernel_name,**kwargs)
         self.model_name = model_name
-        self.has_forces = False
+        self.has_forces = has_forces
         self.representation = representation
         self.representation.disable_pbar = True
+        self.Y = None
+        self.Y_const = None
+        self.KMM = None
+        self.KNM = None
+        self.Nr = None
+        self.X_pseudo = None
+    @return_deepcopy
+    def get_params(self,deep=True):
+        return dict(
+          model_name=self.model_name,
+          kernel_name=self.kernel_name,
+          representation=self.representation,
+          is_precomputed=self.is_precomputed,
+          has_forces=self.has_forces,
+          kwargs=self.kwargs,
+        )
+        
+    @return_deepcopy
+    def dumps(self):
+        state = {}
+        state['init_params'] = self.get_params()
+        state['data'] = dict(
+            Y = self.Y,
+            Y_const = self.Y_const,
+            KMM = self.KMM,
+            KNM = self.KNM,
+            Nr = self.Nr,
+            X_pseudo = self.X_pseudo,
+        )
+    def loads(self,data):
+        self.Y = data['Y']
+        self.Y_const = data['Y_const']
+        self.KMM = data['KMM']
+        self.KNM = data['KNM']
+        self.Nr = data['Nr']
+        self.X_pseudo = data['X_pseudo']
+
     def precompute(self, y_train, X_train, X_pseudo, f_train=None, y_train_nograd=None, X_train_nograd=None):
         kernel = self.kernel
 
@@ -61,7 +99,7 @@ class TrainerSoR(object):
 
         self.is_precomputed = True
 
-    def train(self, lambdas, jitter, y_train=None, X_train=None, X_pseudo=None, f_train=None, y_train_nograd=None, X_train_nograd=None):
+    def fit(self, lambdas, jitter, y_train=None, X_train=None, X_pseudo=None, f_train=None, y_train_nograd=None, X_train_nograd=None):
         if self.is_precomputed is False:
             self.precompute(y_train, X_train, X_pseudo, f_train, y_train_nograd, X_train_nograd)
         Nr = self.Nr

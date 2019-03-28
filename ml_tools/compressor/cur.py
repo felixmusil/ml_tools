@@ -1,5 +1,5 @@
 from ..base import BaseEstimator,TransformerMixin,FeatureBase,np
-from ..utils import tqdm_cs
+from ..utils import tqdm_cs,return_deepcopy
 from scipy.sparse.linalg import  svds
 
 class CURFilter(BaseEstimator,TransformerMixin):
@@ -11,11 +11,29 @@ class CURFilter(BaseEstimator,TransformerMixin):
             raise 'Wrong input: {}'.format(act_on)
         self.is_deterministic = is_deterministic
         self.seed = seed
+        self.trained = False
+        self.selected_ids = None
 
+    @return_deepcopy
     def get_params(self,deep=True):
         params = dict(Nselect=self.Nselect,act_on=self.act_on,is_deterministic=self.is_deterministic,
                          seed=self.seed)
         return params
+        
+    @return_deepcopy
+    def dumps(self):
+        state = {}
+        state['init_params'] = self.get_params()
+        state['data'] = dict(selected_ids=self.selected_ids,
+                            trained=self.trained)
+        return state
+
+    def loads(self, data):
+        if isinstance(data['selected_ids'],dict):
+            self.selected_ids = {int(k):v for k,v in data['selected_ids'].items()}
+        else:
+            self.selected_ids = data['selected_ids']
+        self.trained = data['trained']
 
     def fit(self,X,gradients=False):
         if self.act_on in ['sample per specie']:

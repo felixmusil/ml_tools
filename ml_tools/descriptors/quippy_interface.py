@@ -4,7 +4,7 @@ from ..base import np,sp
 from scipy.sparse import lil_matrix,csr_matrix
 import re
 from string import Template
-from ..utils import tqdm_cs
+from ..utils import tqdm_cs,return_deepcopy
 from .utils import get_chunks,get_frame_slices,get_frame_neigbourlist
 from .feature import DenseFeature,FeatureWithGrad
 
@@ -62,22 +62,48 @@ class RawSoapQUIP(AtomicDescriptorBase):
     def __init__(self,global_species=None,nocenters=None,rc=None, nmax=None,
                  lmax=None, awidth=None,centerweight=None,cutoff_transition_width=None, cutoff_rate=None,
                  cutoff_dexp=None, cutoff_scale=None,fast_avg=False,is_sparse=False,disable_pbar=False, grad=False):
-        if global_species is None and rc is None:
-            pass
-        self.soap_params = dict(rc=rc, nmax=nmax, lmax=lmax, awidth=awidth,cutoff_rate=cutoff_rate,grad=grad,
+
+
+        self.soap_params = dict(rc=rc, nmax=nmax, lmax=lmax, awidth=awidth,                             cutoff_rate=cutoff_rate,grad=grad,
                                 cutoff_transition_width=cutoff_transition_width,
                                 cutoff_dexp=cutoff_dexp, cutoff_scale=cutoff_scale,
-                                centerweight=centerweight,global_species=global_species,
-                               nocenters=nocenters)
+                                centerweight=centerweight,global_species=list(global_species),
+                               nocenters=list(nocenters))
         self.fast_avg = fast_avg
         self.is_sparse = is_sparse
         self.disable_pbar = disable_pbar
-    def fit(self,X):
-        return self
+
+        self.slices = None
+        self.strides = None
+        self.atomic_types = None
+        self.slices_gradients = None
+
+    @return_deepcopy
     def get_params(self,deep=True):
         params = dict(is_sparse=self.is_sparse,disable_pbar=False,fast_avg=self.fast_avg)
         params.update(**self.soap_params)
         return params
+    @return_deepcopy
+    def dumps(self):
+        state = {}
+        state['init_params'] = self.get_params()
+        state['data'] = dict(
+            slices=self.slices,
+            strides=self.strides,
+            atomic_types=self.atomic_types,
+            slices_gradients=self.slices_gradients,
+        )
+        return state
+
+    def loads(self,data):
+        self.slices = data['slices']
+        self.strides = data['strides']
+        self.atomic_types = data['atomic_types']
+        self.slices_gradients = data['slices_gradients']
+
+    def fit(self,X):
+        return self
+
 
     def compute_neigbourlist(self,frame):
         frame = ase2qp(frame)
@@ -201,21 +227,4 @@ class RawSoapQUIP(AtomicDescriptorBase):
 
         return soaps
 
-    def pack(self):
-        state = dict(soap_params=self.soap_params,is_sparse=self.is_sparse,
-                     slices=self.slices,strides=self.strides,
-                     disable_pbar=self.disable_pbar)
-        return state
-    def unpack(self,state):
-        err_m = 'soap_params are not consistent {} != {}'.format(self.soap_params,state['soap_params'])
-        assert self.soap_params == state['soap_params'], err_m
-        err_m = 'is_sparse are not consistent {} != {}'.format(self.is_sparse,state['is_sparse'])
-        assert self.is_sparse == state['is_sparse'], err_m
-        self.strides = state['strides']
-        self.slices = state['slices']
-    def loads(self,state):
-        self.soap_params = state['soap_params']
-        self.is_sparse = state['is_sparse']
-        self.strides = state['strides']
-        self.slices = state['slices']
-        self.disable_pbar = state['disable_pbar']
+

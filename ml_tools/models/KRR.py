@@ -1,5 +1,6 @@
 from ..base import TrainerBase,RegressorBase,FeatureBase
 from ..base import np,sp
+from ..utils import return_deepcopy
 try:
     from autograd.scipy.linalg import cho_factor,cho_solve,solve_triangular
 except:
@@ -33,24 +34,27 @@ class KRR(RegressorBase):
 
             return np.dot(kernel,self.alpha).reshape((-1,3))
 
+    @return_deepcopy
     def get_params(self,deep=True):
-        return dict(sigma=self.jitter)
+        aa =  dict(jitter=self.jitter,
+                    mean=self.mean,
+                    kernel=self.kernel,
+                    X_train=self.X_train,
+                    representation=self.representation)
+        return aa
 
-    def set_params(self,params,deep=True):
-        self.jitter  = params['jitter']
-        self.alpha = None
-
-    def pack(self):
-        state = dict(weights=self.alpha,
-                     jitter=self.jitter )
+    @return_deepcopy
+    def dumps(self):
+        state = {}
+        state['init_params'] = self.get_params()
+        state['data'] = dict(
+            weights=self.alpha
+        )
         return state
-    def unpack(self,state):
-        self.alpha = state['weights']
-        err_m = 'jitter are not consistent {} != {}'.format(self.jitter ,state['jitter'])
-        assert self.jitter  == state['jitter'], err_m
-    def loads(self,state):
-        self.alpha = state['weights']
-        self.jitter  = state['jitter']
+
+    def loads(self,data):
+        self.alpha = data['weights']
+
 
 
 class KRRFastCV(RegressorBase):

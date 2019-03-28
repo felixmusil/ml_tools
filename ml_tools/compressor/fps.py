@@ -2,7 +2,7 @@
 
 from ..base import np,sp
 from ..base import CompressorBase,FeatureBase
-from ..utils import tqdm_cs
+from ..utils import tqdm_cs,return_deepcopy
 import matplotlib.pyplot as plt
 
 class FPSFilter(CompressorBase):
@@ -30,7 +30,7 @@ class FPSFilter(CompressorBase):
         self.min_distance2 = None
         self.trained = False
 
-
+    @return_deepcopy
     def get_params(self,deep=True):
         params = dict(Nselect=self.Nselect,kernel=self.kernel,act_on=self.act_on,precompute_kernel=self.precompute_kernel,
         disable_pbar=self.disable_pbar)
@@ -109,6 +109,7 @@ class FPSFilter(CompressorBase):
     def plot(self):
         plt.semilogy(self.min_distance2,label='FPSFilter '+self.act_on)
 
+    @return_deepcopy
     def dumps(self):
         state = {}
         state['init_params'] = self.get_params()

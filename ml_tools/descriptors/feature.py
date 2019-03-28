@@ -1,12 +1,15 @@
 import numpy as np
 from ..base import FeatureBase
+from ..utils import return_deepcopy
 # from collections.abc import Iterable
 
 
 class DenseFeature(FeatureBase):
-    def __init__(self, data=None, Ncenter=None, Nfeature=None, # strides=None,
-     has_gradients=False, chunk_len=None , structure_strides=None, structure_slice=None,species=None,mapping=None):
+    def __init__(self, Ncenter=None, Nfeature=None,has_gradients=False, chunk_len=None,tag='rep',
+     data=None,structure_strides=None, species=None,mapping=None):
         if data is None:
+            self.Ncenter = Ncenter
+            self.Nfeature = Nfeature
             if has_gradients is False:
                 self.shape = (Ncenter,Nfeature)
                 self.shape_out = (Ncenter,Nfeature)
@@ -17,19 +20,21 @@ class DenseFeature(FeatureBase):
                 self.mapping = -1*np.ones((Ncenter,2),dtype=int)
             self.data = np.empty(self.shape)
             self.structure_strides = [0]
-            self.structure_slice = slice(0,0)
-            self.data_slice = slice(0,0)
+            # self.structure_slice = slice(0,0)
+            # self.data_slice = slice(0,0)
             # self.reduced_data_slice = slice(0,0)
             self.is_slice = False
             self.species = np.zeros((Ncenter,1),dtype=int)
         else:
             self.data = data
             self.shape = data.shape
-            if structure_strides is None or structure_slice is None or  species is None or mapping is None:
+            self.Ncenter = data.shape[0]
+            self.Nfeature = data.shape[1]
+            if structure_strides is None or species is None or mapping is None:
                 raise RuntimeError()
             self.mapping = mapping
             self.structure_strides = structure_strides
-            self.structure_slice = structure_slice
+            # self.structure_slice = structure_slice
             # self.reduced_data_slice = reduced_data_slice
             self.species = species
 
@@ -37,10 +42,43 @@ class DenseFeature(FeatureBase):
             self.shape_out = self.shape
         # self.strides = np.asarray(strides,dtype=np.int32)
         # self.Nitems = len(self.strides)-1
-
+        self.tag = tag
         self.chunk_len = chunk_len
 
         self.has_gradients = has_gradients
+
+    @return_deepcopy
+    def get_params(self):
+        params = {}
+        params['Ncenter'] = self.Ncenter
+        params['Nfeature'] = self.Nfeature
+        params['has_gradients'] = self.has_gradients
+        params['chunk_len'] = self.chunk_len
+        params['tag'] = self.tag
+        return params
+
+    def dumps(self):
+        from copy import deepcopy
+        state = {}
+        state['init_params'] = deepcopy(self.get_params())
+        state['data'] = dict(
+            data=self.data,
+            structure_strides=deepcopy(self.structure_strides),
+            tag=self.tag,
+            # structure_slice=self.structure_slice,
+            species=deepcopy(self.species),
+            mapping=deepcopy(self.mapping),
+            )
+        return state
+
+    def loads(self, data):
+        self.data = data['data']
+        self.structure_strides = data['structure_strides']
+        self.tag = data['tag']
+        # self.structure_slice = data['structure_slice']
+        self.species = data['species']
+        self.mapping = data['mapping']
+
 
     def get_species(self):
         return self.species
@@ -115,7 +153,7 @@ class DenseFeature(FeatureBase):
         # Nsample = len(np.unique(mapping[:,0]))
 
         self.structure_strides.append(structure_stride)
-        self.structure_slice = slice(0,self.structure_slice.stop+1)
+        # self.structure_slice[1] = self.structure_slice[0]+1
         # self.reduced_data_slice = slice(0,self.reduced_data_slice.stop+Nsample)
         Nsample = self.get_nb_sample()
 
@@ -201,7 +239,7 @@ class DenseFeature(FeatureBase):
                                 has_gradients=self.has_gradients,
                                 chunk_len=self.chunk_len,
                                 structure_strides=structure_strides,
-                                structure_slice=structure_slice,
+                                # structure_slice=structure_slice,
                                 species=species)
         return obj_slice
 
@@ -248,9 +286,12 @@ class FeatureWithGrad(FeatureBase):
     def __init__(self, representations=None, gradients=None, Ncenter=None, Nfeature=None, Nneighbour=None, species=None, has_gradients=False,chunk_len=None,hyperparams=None):
         self.chunk_len = chunk_len
         self.hyperparams = hyperparams
+        self.Ncenter = Ncenter
+        self.Nfeature = Nfeature
+        self.Nneighbour = Nneighbour
 
         if representations is None:
-            self.representations = DenseFeature(Ncenter=Ncenter, Nfeature=Nfeature, has_gradients=False, chunk_len=chunk_len)
+            self.representations = DenseFeature(Ncenter=Ncenter, Nfeature=Nfeature, has_gradients=False, chunk_len=chunk_len,tag='rep')
         else:
             self.representations = representations
 
@@ -258,9 +299,11 @@ class FeatureWithGrad(FeatureBase):
 
         if has_gradients is True:
             if gradients is None:
-                self.gradients = DenseFeature(Ncenter=Nneighbour, Nfeature=Nfeature, has_gradients=True, chunk_len=chunk_len)
+                self.gradients = DenseFeature(Ncenter=Nneighbour, Nfeature=Nfeature, has_gradients=True, chunk_len=chunk_len,tag='grad')
             else:
                 self.gradients = gradients
+        else:
+            self.gradients = None
 
     def get_species(self,gradients=False):
         if gradients is False:
@@ -296,13 +339,8 @@ class FeatureWithGrad(FeatureBase):
     def insert(self, slice_representations, representations, species_representations, representations_mapping, slice_gradients=None, gradients=None, species_gradients=None, gradient_mapping=None):
         self.representations.insert(slice_representations,representations,species_representations,representations_mapping)
         if self.has_gradients is True:
-            if species_gradients is None:
-                raise RuntimeError()
             self.gradients.insert(slice_gradients,gradients,species_gradients,gradient_mapping)
-            # st = slice_representations.start
-            # self.map_gradient2desc[slice_gradients] = gradient_mapping #+ st
-            # self.quippy_map[slice_gradients] = quippy_map + st
-            # self.grad_species_quippy[slice_gradients] = grad_species_quippy
+
 
     def extract_pseudo_input(self, ids_pseudo_input):
         if isinstance(ids_pseudo_input, dict) is True:
@@ -412,6 +450,29 @@ class FeatureWithGrad(FeatureBase):
         else:
             raise RuntimeError('gardients is {} but has_gradients is {}'.format(gradients,self.has_gradients))
 
+    @return_deepcopy
+    def get_params(self):
+        params = {}
+        params['Ncenter'] = self.Ncenter
+        params['Nfeature'] = self.Nfeature
+        params['Nneighbour'] = self.Nneighbour
+        params['has_gradients']= self.has_gradients
+        params['chunk_len'] = self.chunk_len
+        params['hyperparams'] = self.hyperparams
+        return params
+
+    def dumps(self):
+        from copy import deepcopy
+        state = {}
+        state['init_params'] = deepcopy(self.get_params())
+        state['data'] = dict(representations=self.representations,
+                            gradients=self.gradients)
+
+        return state
+
+    def loads(self, data):
+        self.representations = data['representations']
+        self.gradients = data['gradients']
     # def get_map_gradient2desc(self,specie=False):
     #     if specie is False:
     #         specie = self.current_specie

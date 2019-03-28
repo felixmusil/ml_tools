@@ -26,7 +26,7 @@ def is_large_array(data):
         return False
 
 def is_npy_filename(fn):
-    if isinstance(fn,str):
+    if isinstance(fn,str) or isinstance(fn,unicode):
         filename , file_extension = os.path.splitext(fn)
         if file_extension == '.npy':
             return True
@@ -111,7 +111,8 @@ class BaseIO(object):
         filename , file_extension = os.path.splitext(fn)
         if file_extension == '.json':
             data = self.to_dict(version=version)
-            self._dump_npy(fn,data)
+            class_name = data['class_name'].lower()
+            self._dump_npy(fn,data,class_name)
             dump_json(fn,data)
         else:
             raise NotImplementedError('Unknown file extention: {}'.format(file_extension))
@@ -132,26 +133,34 @@ class BaseIO(object):
         else:
             raise NotImplementedError('Unknown file extention: {}'.format(file_extension))
 
-    def _dump_npy(self,fn,data):
+    def _dump_npy(self,fn,data,class_name):
         filename , file_extension = os.path.splitext(fn)
         for k,v in data.items():
             if isinstance(v,dict):
-                self._dump_npy(fn, v)
+                if 'class_name' in data:
+                    class_name = data['class_name'].lower()
+                self._dump_npy(fn, v, class_name)
             elif is_large_array(v) is True:
-                v_fn = filename + '-{}'.fomat(k) + '.npy'
+                if 'tag' in data:
+                    class_name += '-'+ data['tag']
+                v_fn = filename + '-{}-{}'.format(class_name,k) + '.npy'
                 v_bfn = os.path.basename(v_fn)
                 data[k] = v_bfn
                 np.save(v_fn,v)
 
-            elif is_npy(v)  is True:
-                data[k] = v.tolist()
+            elif is_npy(v) is True:
+                data[k] = ['npy',v.tolist()]
 
     def _load_npy(self,data):
         for k,v in data.items():
             if isinstance(v,dict):
                 self._load_npy(v)
             elif is_npy_filename(v) is True:
-                data[k] = np.load(v)
+                data[k] = np.load(v,mmap_mode='r')
+            elif isinstance(v,list):
+                if len(v) == 2:
+                    if 'npy' == v[0]:
+                        data[k] = np.array(v[1])
 
 
 

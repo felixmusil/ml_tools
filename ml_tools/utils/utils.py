@@ -1,6 +1,8 @@
 import os
 from ..base import np,sp
 from scipy.stats import spearmanr
+from functools import wraps
+from copy import deepcopy
 
 def is_notebook():
     from IPython import get_ipython
@@ -21,6 +23,12 @@ if is_notebook():
 else:
     from tqdm import tqdm as tqdm_cs
     ascii = True
+
+def return_deepcopy(f):
+    @wraps(f)
+    def wrapper(*args, **kwds):
+        return deepcopy(f(*args, **kwds))
+    return wrapper
 
 def get_r2(y_pred,y_true):
     weight = 1

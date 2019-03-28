@@ -4,7 +4,7 @@ from ..base import np,sp
 from ..math_utils import power,average_kernel
 from ..math_utils.power_kernel import (sum_power_no_species,derivative_sum_power_no_species,sum_power_diff_species,derivative_sum_power_diff_species,sum_power_no_species_self,
 sum_power_diff_species_self)
-from ..utils import tqdm_cs,is_autograd_instance
+from ..utils import tqdm_cs,is_autograd_instance,return_deepcopy
 #from ..math_utils.basic import power,average_kernel
 from scipy.sparse import issparse
 # from collections.abc import Iterable
@@ -141,6 +141,8 @@ class KernelSum(KernelBase):
 
     def fit(self,X):
         return self
+
+    @return_deepcopy
     def get_params(self,deep=True):
         params = dict(kernel_type=self.kernel_type,kwargs=self.kwargs)
         return params
@@ -186,6 +188,7 @@ class KernelSum(KernelBase):
 
         return K_diag
 
+    @return_deepcopy
     def dumps(self):
         state = {}
         state['init_params'] = self.get_params()
