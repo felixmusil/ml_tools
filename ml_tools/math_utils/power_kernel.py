@@ -43,6 +43,13 @@ def derivative_sum_power_no_species(out, zeta, desc1, grad1, ids1, desc2, ids2):
             out[ipos1,:,iframe2] += fac
 
 @njit(parallel=True)
+def sum_power_diag(out, zeta, desc1, ids1):
+    N = ids1.shape[0]
+    for idesc1 in prange(N):
+        iframe1, sp1 = ids1[idesc1]
+        out[iframe1] += power_kernel(desc1[idesc1],desc1[idesc1],zeta)
+
+@njit(parallel=True)
 def sum_power_diff_species(out, zeta, desc1, ids1, desc2, ids2):
     N = ids1.shape[0]
     M = ids2.shape[0]

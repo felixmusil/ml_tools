@@ -3,7 +3,7 @@ from ..base import KernelBase,FeatureBase
 from ..base import np,sp
 from ..math_utils import power,average_kernel
 from ..math_utils.power_kernel import (sum_power_no_species,derivative_sum_power_no_species,sum_power_diff_species,derivative_sum_power_diff_species,sum_power_no_species_self,
-sum_power_diff_species_self)
+sum_power_diff_species_self,sum_power_diag)
 from ..utils import tqdm_cs,is_autograd_instance,return_deepcopy
 #from ..math_utils.basic import power,average_kernel
 from scipy.sparse import issparse
@@ -131,11 +131,13 @@ class KernelSum(KernelBase):
         if self.kernel_type == 'power':
             self.k = sum_power_no_species
             self.k_self = sum_power_no_species_self
+            self.k_diag = sum_power_diag
             self.dk_dr = derivative_sum_power_no_species
             self.zeta = self.kwargs['zeta']
         if self.kernel_type == 'power_gap':
             self.k = sum_power_diff_species
             self.k_self = sum_power_diff_species_self
+            self.k_diag = sum_power_diag
             self.dk_dr = derivative_sum_power_diff_species
             self.zeta = self.kwargs['zeta']
 
@@ -156,13 +158,16 @@ class KernelSum(KernelBase):
         Xids = X.get_ids()
         Yi = Y.get_data()
         Yids = Y.get_ids()
-
+        Kx_diag = self.K_diag(X)
+        Ky_diag = self.K_diag(Y)
         if eval_gradient[0] is False:
             kernel = np.ones((N,M))
             if is_square is True:
                 self.k_self(kernel,self.zeta,Xi,Xids)
             elif is_square is False:
                 self.k(kernel,self.zeta,Xi,Xids,Yi,Yids)
+
+
         elif eval_gradient[0] is True:
             kernel = np.ones((N,3,M))
             dXi_dr = X.get_data(True)
@@ -185,7 +190,10 @@ class KernelSum(KernelBase):
         return K
 
     def K_diag(self,Xfeat,eval_gradient=False):
-
+        K_diag = np.zeros((Xfeat.get_nb_sample(eval_gradient),1))
+        self.k_diag(K_diag,self.zeta,
+                    Xfeat.get_data(eval_gradient),
+                    Xfeat.get_ids(eval_gradient))
         return K_diag
 
     @return_deepcopy

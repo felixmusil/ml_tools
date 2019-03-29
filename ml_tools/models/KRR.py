@@ -9,14 +9,14 @@ except:
 class KRR(RegressorBase):
     _pairwise = True
 
-    def __init__(self,jitter,mean=None,kernel=None,X_train=None,representation=None):
+    def __init__(self,jitter,kernel=None,X_train=None,representation=None,self_energies=None):
         # Weights of the krr model
         self.alpha = None
         self.jitter = jitter
         self.kernel = kernel
         self.X_train = X_train
-        self.mean = mean
         self.representation = representation
+        self.self_energies = self_energies
 
     def fit(self,kernel,y):
         '''Train the krr model with trainKernel and trainLabel.'''
@@ -28,11 +28,29 @@ class KRR(RegressorBase):
         if isinstance(X,FeatureBase) is False:
             X = self.representation.transform(X)
         kernel = self.kernel.transform(X,self.X_train,(eval_gradient,False))
-        if eval_gradient is False:
-            return self.mean + np.dot(kernel,self.alpha).reshape((-1))
-        else:
 
-            return np.dot(kernel,self.alpha).reshape((-1,3))
+        Natoms = np.zeros(X.get_nb_sample(),dtype=int)
+        for iframe,sp in X.get_ids():
+            Natoms[iframe] += 1
+
+        if eval_gradient is False:
+            if isinstance(self.self_energies, dict):
+                Y_formation = np.zeros(X.get_nb_sample())
+                for iframe,sp in X.get_ids():
+                    Y_formation[iframe] += self.self_energies[sp]
+            else:
+                # a constant to be added
+                Y_formation = self.self_energies
+
+            # return Y_formation + Natoms*np.dot(kernel,self.alpha).reshape((-1))
+            return Y_formation + np.dot(kernel,self.alpha).reshape((-1))
+        else:
+            aa = []
+            for n_atom in Natoms:
+                aa.extend([n_atom]*n_atom)
+            Natoms = np.array(aa).reshape((-1,1))
+            # return Natoms*np.dot(kernel,self.alpha).reshape((-1,3))
+            return np.dot(kernel,self.alpha).reshape((-1,3)) - self.alpha.sum()
 
     @return_deepcopy
     def get_params(self,deep=True):
