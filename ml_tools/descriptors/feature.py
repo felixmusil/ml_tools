@@ -20,9 +20,6 @@ class DenseFeature(FeatureBase):
                 self.mapping = -1*np.ones((Ncenter,3),dtype=int)
             self.data = np.empty(self.shape)
             self.structure_strides = [0]
-            # self.structure_slice = slice(0,0)
-            # self.data_slice = slice(0,0)
-            # self.reduced_data_slice = slice(0,0)
             self.is_slice = False
             self.species = np.zeros((Ncenter,1),dtype=int)
         else:
@@ -34,14 +31,10 @@ class DenseFeature(FeatureBase):
                 raise RuntimeError()
             self.mapping = mapping
             self.structure_strides = structure_strides
-            # self.structure_slice = structure_slice
-            # self.reduced_data_slice = reduced_data_slice
             self.species = species
 
             self.is_slice = True
             self.shape_out = self.shape
-        # self.strides = np.asarray(strides,dtype=np.int32)
-        # self.Nitems = len(self.strides)-1
         self.tag = tag
         self.chunk_len = chunk_len
 
@@ -65,7 +58,6 @@ class DenseFeature(FeatureBase):
             data=self.data,
             structure_strides=deepcopy(self.structure_strides),
             tag=self.tag,
-            # structure_slice=self.structure_slice,
             species=deepcopy(self.species),
             mapping=deepcopy(self.mapping),
             )
@@ -75,7 +67,6 @@ class DenseFeature(FeatureBase):
         self.data = data['data']
         self.structure_strides = data['structure_strides']
         self.tag = data['tag']
-        # self.structure_slice = data['structure_slice']
         self.species = data['species']
         self.mapping = data['mapping']
 
@@ -102,13 +93,6 @@ class DenseFeature(FeatureBase):
     def get_ids(self):
         ids = np.concatenate([self.mapping,self.species],axis=1)
         return np.asarray(ids,dtype=int)
-    # def get_strides(self,specie=None):
-    #     if specie is None:
-    #         return self.strides
-    #     else:
-    #         Nel = self.get_nb_elements(self.strides,specie)
-    #         # return np.cumsum(Nel[Nel != 0])
-    #         return np.cumsum(Nel)
 
     def get_nb_elements(self,strides,specie=None):
         if specie is None:
@@ -116,8 +100,6 @@ class DenseFeature(FeatureBase):
         else:
             sp_mask = np.array(self.species.flatten() == specie,dtype=int)
 
-        # if self.has_gradients is True:
-        #     sp_mask = np.array(list(sp_mask)*3)
         Nel = [0]
         for st,nd in zip(strides[:-1],strides[1:]):
             n_el = np.sum(sp_mask[st:nd])
@@ -131,61 +113,24 @@ class DenseFeature(FeatureBase):
         Nel = self.get_nb_elements(self.structure_strides,specie)
         return np.cumsum(Nel)
 
-    # def get_valid_ids(self,specie):
-    #     sp_mask = np.array(self.species == specie,dtype=int)
-    #     if self.has_gradients is True:
-    #         sp_mask = np.array(list(sp_mask)*3)
-    #     Nel = self.get_nb_sample()
-    #     valid_ids = -1*np.ones(Nel,dtype=int)
-    #     # print specie,Nel,self.strides.shape,sp_mask.shape,self.species.shape
-    #     for icenter,(st,nd) in enumerate(zip(self.strides[:-1],self.strides[1:])):
-    #         n_el = np.sum(sp_mask[st:nd])
-    #         #print icenter,n_el,sp_mask[st:nd],st,nd
-    #         if n_el > 0:
-    #             valid_ids[icenter] = icenter
-    #     return valid_ids[valid_ids>-1]
-
     def insert(self, data_slice, data, species, mapping):
         n_rows = data_slice.stop - data_slice.start
         st = self.structure_strides[-1]
         structure_stride = st + n_rows
 
-        # Nsample = len(np.unique(mapping[:,0]))
 
         self.structure_strides.append(structure_stride)
-        # self.structure_slice[1] = self.structure_slice[0]+1
-        # self.reduced_data_slice = slice(0,self.reduced_data_slice.stop+Nsample)
+
         Nsample = self.get_nb_sample()
 
         self.species[data_slice] = species[:,None]
-        self.mapping[data_slice] = mapping # + Nsample
+        self.mapping[data_slice] = mapping
         self.mapping[data_slice,0] += Nsample
-        # self.mapping[data_slice,1:] = mapping[:,1:]  + Nsample
-        # self.mapping[data_slice,0] = mapping[:,0]
         self.data[data_slice] = data
 
     def get_nb_sample(self,specie=None):
         mapping = self.get_mapping(specie)
-        # if self.has_gradients is True:
-        #     return len(np.unique(mapping[mapping[:,2] > -1,0]))
-        # else:
         return len(np.unique(mapping[mapping[:,0] > -1,0]))
-
-    # def get_nb_sample(self,specie=None):
-    #     mapping = self.get_mapping(specie)
-    #     if self.has_gradients is True:
-    #         aa = 0
-    #         for ii in np.unique(mapping[:,0]):
-    #             bb = mapping[mapping[:,0] == ii,1]
-    #             aa += len(np.unique(bb[bb > -1]))
-    #         return aa
-    #     else:
-    #         return len(np.unique(mapping[mapping[:,0] > -1,0]))
-
-    # def get_reduced_data_slice(self,specie=None):
-    #     Nsample = self.get_nb_sample(specie)
-    #     st = self.reduced_data_slice.start
-    #     return slice(st,st+Nsample)
 
     def get_nb_feature(self):
         return self.shape_out[-1]
@@ -235,7 +180,6 @@ class DenseFeature(FeatureBase):
     def get_data_slice(self, structure_slice):
         st,nd = structure_slice.start, structure_slice.stop+1
         global_strides = self.structure_strides[st:nd]
-        # print st,nd,global_strides
         if len(global_strides) < 2:
             global_strides = [0, 1]
         data_slice = slice(global_strides[0],global_strides[-1])
@@ -255,7 +199,6 @@ class DenseFeature(FeatureBase):
                                 has_gradients=self.has_gradients,
                                 chunk_len=self.chunk_len,
                                 structure_strides=structure_strides,
-                                # structure_slice=structure_slice,
                                 species=species)
         return obj_slice
 
@@ -326,14 +269,6 @@ class FeatureWithGrad(FeatureBase):
             return self.representations.get_species()
         elif gradients is True:
             return self.gradients.get_species()
-
-    # def get_valid_ids(self,specie=False,gradients=False):
-    #     if specie is False:
-    #         specie = self.current_specie
-    #     if gradients is False:
-    #         return self.representations.get_valid_ids(specie)
-    #     elif gradients is True:
-    #         return self.gradients.get_valid_ids(specie)
 
     def get_data(self,gradients=False,specie=None):
         if gradients is False:
@@ -440,12 +375,6 @@ class FeatureWithGrad(FeatureBase):
             for rep in self.representations.get_iterator():
                 grad = self.gradients[rep.structure_slice]
 
-                # data_slice = grad.get_data_slice(rep.structure_slice)
-                # print rep.structure_slice, data_slice
-                # print self.map_gradient2desc.shape
-                # mapping = self.map_gradient2desc[data_slice]
-                # mapping = mapping - mapping.min()
-
                 yield FeatureWithGrad(representations=rep,
                                     gradients=grad,
                                     has_gradients=True,
@@ -455,7 +384,6 @@ class FeatureWithGrad(FeatureBase):
         elif self.has_gradients is True and gradients is True:
             for grad in self.gradients.get_iterator():
                 rep = self.representations[grad.structure_slice]
-                # data_slice = grad.get_data_slice(grad.structure_slice)
 
                 feat = FeatureWithGrad(representations=rep,
                                     gradients=grad,
@@ -489,29 +417,3 @@ class FeatureWithGrad(FeatureBase):
     def loads(self, data):
         self.representations = data['representations']
         self.gradients = data['gradients']
-    # def get_map_gradient2desc(self,specie=False):
-    #     if specie is False:
-    #         specie = self.current_specie
-
-    #     if specie is None:
-    #         sp_mask = np.ones(self.gradients.get_species().shape,dtype=bool)
-    #     else:
-    #         sp_mask = self.gradients.get_species() == specie
-
-    #     map_gradient2desc = self.map_gradient2desc.copy()
-    #     map_gradient2desc = map_gradient2desc[sp_mask]
-
-    #     # rep_structure_strides = self.representations.get_structure_strides(specie)
-    #     rep_structure_strides = self.representations.get_structure_strides(None)
-    #     grad_structure_strides = self.gradients.get_structure_strides(specie)
-    #     # print map_gradient2desc.shape,map_gradient2desc.min(),map_gradient2desc.max()
-    #     for rep_st,grad_st,grad_nd in zip(rep_structure_strides[:-1],grad_structure_strides[:-1],grad_structure_strides[1:]):
-    #         map_gradient2desc[grad_st:grad_nd] += rep_st
-
-    #     # print rep_structure_strides[:-1].shape,rep_structure_strides[:-1].min(),rep_structure_strides[:-1].max()
-    #     # print map_gradient2desc.shape,map_gradient2desc.min(),map_gradient2desc.max()
-    #     return map_gradient2desc
-
-    # def set_current_specie(self,specie):
-    #     if specie in self.hyperparams['global_species']:
-    #         self.current_specie = specie
