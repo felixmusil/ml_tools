@@ -69,6 +69,16 @@ def make_new_dir(fn):
         os.makedirs(fn)
     return fn
 
+def is_structures(inp):
+    from ase import Atoms
+    res = False
+    if isinstance(inp,list):
+        res = True
+        for elem in inp:
+            if not isinstance(elem,Atoms):
+                res = False
+
+    return res
 
 
 def s2hms(time):

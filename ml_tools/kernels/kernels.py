@@ -3,21 +3,23 @@ from ..base import KernelBase,FeatureBase
 from ..base import np,sp
 from ..math_utils import power,average_kernel
 from ..math_utils.power_kernel import (sum_power_no_species,derivative_sum_power_no_species,sum_power_diff_species,derivative_sum_power_diff_species,sum_power_no_species_self,
-sum_power_diff_species_self,sum_power_diag)
+sum_power_diff_species_self,power_diff_species)
 from ..utils import tqdm_cs,is_autograd_instance,return_deepcopy
 #from ..math_utils.basic import power,average_kernel
 from scipy.sparse import issparse
 # from collections.abc import Iterable
 
 
-registered_kernel = ['power', 'power_sum', 'gap']
+registered_kernel = ['power', 'power_sum','gap_per_atom', 'gap']
 
 def make_kernel(name, **kwargs):
     if name == registered_kernel[0]:
-        kernel = KernelPower(**kargs[0])
+        kernel = KernelPower(kernel_type='power', **kwargs)
     elif name == registered_kernel[1]:
         kernel = KernelSum(kernel_type = 'power', **kwargs)
     elif name == registered_kernel[2]:
+        kernel = KernelPower(kernel_type='power_gap', **kwargs)
+    elif name == registered_kernel[3]:
         kernel = KernelSum(kernel_type = 'power_gap', **kwargs)
 
     return kernel
@@ -25,8 +27,24 @@ def make_kernel(name, **kwargs):
 
 
 class KernelPower(KernelBase):
-    def __init__(self,zeta):
+    def __init__(self, kernel_type, zeta):
         self.zeta = zeta
+
+        self.kernel_type = kernel_type
+        self.set_kernel_func()
+
+    def set_kernel_func(self):
+        if self.kernel_type == 'power':
+            self.k = self.K
+            self.dk_dr = self.dK_dr
+        if self.kernel_type == 'power_gap':
+            self.k = power_diff_species
+            self.dk_dr = derivative_sum_power_diff_species
+
+    # def __init__(self,zeta):
+    #     self.zeta = zeta
+    def K(self, out, zeta, desc1, ids1, desc2, ids2):
+        out = power(np.dot(desc1,desc2.T),zeta)
     def fit(self,X):
         return self
     def get_params(self,deep=True):
@@ -43,6 +61,7 @@ class KernelPower(KernelBase):
 
         if zeta is None:
             zeta = self.zeta
+
         if isinstance(X, FeatureBase):
             Xi = X.get_data(gradients=eval_gradient[0])
         elif len(X.shape) > 2:
@@ -61,11 +80,23 @@ class KernelPower(KernelBase):
         else:
             Yi = Y
 
+        if Y is None:
+            Y = X
+
         if issparse(Xi) is False:
+            N = X.get_nb_sample(eval_gradient[0])
+            M = Y.get_nb_sample(eval_gradient[1])
+
+            Xi = X.get_data()
+            Xids = X.get_ids()
+            Yi = Y.get_data()
+            Yids = Y.get_ids()
+
             if eval_gradient[0] is True:
-                return self.dK_dr(X,Y)
+                return self.dk_dr(X,Y)
             elif eval_gradient[0] is False:
-                return power(np.dot(Xi,Yi.T),zeta)
+                kernel = np.zeros((N,M))
+                return self.k(kernel, zeta, Xi, Xids, Yi, Yids)
 
         elif issparse(Xi) is True:
             N, M = Xi.shape[0],Yi.shape[0]
@@ -131,13 +162,11 @@ class KernelSum(KernelBase):
         if self.kernel_type == 'power':
             self.k = sum_power_no_species
             self.k_self = sum_power_no_species_self
-            self.k_diag = sum_power_diag
             self.dk_dr = derivative_sum_power_no_species
             self.zeta = self.kwargs['zeta']
         if self.kernel_type == 'power_gap':
             self.k = sum_power_diff_species
             self.k_self = sum_power_diff_species_self
-            self.k_diag = sum_power_diag
             self.dk_dr = derivative_sum_power_diff_species
             self.zeta = self.kwargs['zeta']
 
@@ -158,10 +187,10 @@ class KernelSum(KernelBase):
         Xids = X.get_ids()
         Yi = Y.get_data()
         Yids = Y.get_ids()
-        Kx_diag = self.K_diag(X)
-        Ky_diag = self.K_diag(Y)
+        # Kx_diag = self.K_diag(X)
+        # Ky_diag = self.K_diag(Y)
         if eval_gradient[0] is False:
-            kernel = np.ones((N,M))
+            kernel = np.zeros((N,M))
             if is_square is True:
                 self.k_self(kernel,self.zeta,Xi,Xids)
             elif is_square is False:
@@ -169,10 +198,10 @@ class KernelSum(KernelBase):
 
 
         elif eval_gradient[0] is True:
-            kernel = np.ones((N,3,M))
+            kernel = np.zeros((N,3,M))
             dXi_dr = X.get_data(True)
-            Xids = X.get_ids(True)
-            self.dk_dr(kernel,self.zeta,Xi,dXi_dr,Xids,Yi,Yids)
+            gXids = X.get_ids(True)
+            self.dk_dr(kernel,self.zeta,Xi,Xids,dXi_dr,gXids,Yi,Yids)
             kernel = kernel.reshape(-1,M)
 
         return kernel
@@ -205,6 +234,5 @@ class KernelSum(KernelBase):
 
     def loads(self,state):
         pass
-
 
 

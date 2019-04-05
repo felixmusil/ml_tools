@@ -17,7 +17,7 @@ class DenseFeature(FeatureBase):
             elif has_gradients is True:
                 self.shape = (Ncenter,3,Nfeature)
                 self.shape_out = (Ncenter,3,Nfeature)
-                self.mapping = -1*np.ones((Ncenter,2),dtype=int)
+                self.mapping = -1*np.ones((Ncenter,3),dtype=int)
             self.data = np.empty(self.shape)
             self.structure_strides = [0]
             # self.structure_slice = slice(0,0)
@@ -158,13 +158,29 @@ class DenseFeature(FeatureBase):
         Nsample = self.get_nb_sample()
 
         self.species[data_slice] = species[:,None]
-        self.mapping[data_slice] = mapping + Nsample
+        self.mapping[data_slice] = mapping # + Nsample
+        self.mapping[data_slice,0] += Nsample
+        # self.mapping[data_slice,1:] = mapping[:,1:]  + Nsample
+        # self.mapping[data_slice,0] = mapping[:,0]
         self.data[data_slice] = data
-
 
     def get_nb_sample(self,specie=None):
         mapping = self.get_mapping(specie)
+        # if self.has_gradients is True:
+        #     return len(np.unique(mapping[mapping[:,2] > -1,0]))
+        # else:
         return len(np.unique(mapping[mapping[:,0] > -1,0]))
+
+    # def get_nb_sample(self,specie=None):
+    #     mapping = self.get_mapping(specie)
+    #     if self.has_gradients is True:
+    #         aa = 0
+    #         for ii in np.unique(mapping[:,0]):
+    #             bb = mapping[mapping[:,0] == ii,1]
+    #             aa += len(np.unique(bb[bb > -1]))
+    #         return aa
+    #     else:
+    #         return len(np.unique(mapping[mapping[:,0] > -1,0]))
 
     # def get_reduced_data_slice(self,specie=None):
     #     Nsample = self.get_nb_sample(specie)
