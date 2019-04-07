@@ -6,7 +6,7 @@ import re
 from string import Template
 from ..utils import tqdm_cs,return_deepcopy
 from .utils import get_chunks,get_frame_slices,get_frame_neigbourlist
-from .feature import DenseFeature,FeatureWithGrad
+from .feature import DenseFeature,Representation
 
 def ase2qp(aseatoms):
     from quippy import Atoms as qpAtoms
@@ -15,16 +15,6 @@ def ase2qp(aseatoms):
     numbers = aseatoms.get_atomic_numbers()
     pbc = aseatoms.get_pbc()
     return qpAtoms(numbers=numbers,cell=cell,positions=positions,pbc=pbc)
-
-def get_Nsoap(spkitMax,nmax,lmax):
-    Nsoap = 0
-    for sp1 in spkitMax:
-        for sp2 in spkitMax:
-            if sp1 == sp2:
-                Nsoap += nmax*(nmax+1)*(lmax+1) / 2
-            elif sp1 > sp2:
-                Nsoap += nmax**2*(lmax+1)
-    return Nsoap + 1
 
 def get_rawsoap(frame,soapstr,nocenters, global_species, rc, nmax, lmax,awidth,
                 centerweight,cutoff_transition_width,
@@ -104,6 +94,16 @@ class RawSoapQUIP(AtomicDescriptorBase):
     def fit(self,X):
         return self
 
+    @staticmethod
+    def get_Nsoap(spkitMax,nmax,lmax):
+        Nsoap = 0
+        for sp1 in spkitMax:
+            for sp2 in spkitMax:
+                if sp1 == sp2:
+                    Nsoap += nmax*(nmax+1)*(lmax+1) / 2
+                elif sp1 > sp2:
+                    Nsoap += nmax**2*(lmax+1)
+        return Nsoap + 1
 
     def compute_neigbourlist(self,frame):
         frame = ase2qp(frame)
@@ -125,18 +125,18 @@ class RawSoapQUIP(AtomicDescriptorBase):
             self.atomic_types[iframe] = numbers
 
 
-        Nfeature = get_Nsoap(global_species,soap_params['nmax'],
+        Nfeature = self.get_Nsoap(global_species,soap_params['nmax'],
                                 soap_params['lmax'])
 
         Ncenter,self.slices,strides = get_frame_slices(frames,nocenters=nocenters, fast_avg=fast_avg)
 
         if with_gradients is False:
             self.slices_gradients = [None] * len(frames)
-            features = FeatureWithGrad(Ncenter=Ncenter, Nfeature=Nfeature, chunk_len=chunk_len,hyperparams=soap_params)
+            features = Representation(Ncenter=Ncenter, Nfeature=Nfeature, chunk_len=chunk_len,hyperparams=soap_params)
         elif with_gradients is True:
             Nneighbour,strides_gradients,self.slices_gradients = get_frame_neigbourlist(frames,nocenters=nocenters)
 
-            features = FeatureWithGrad(Ncenter=Ncenter, Nfeature=Nfeature,  Nneighbour=Nneighbour, has_gradients=True,chunk_len=chunk_len,hyperparams=soap_params)
+            features = Representation(Ncenter=Ncenter, Nfeature=Nfeature,  Nneighbour=Nneighbour, has_gradients=True,chunk_len=chunk_len,hyperparams=soap_params)
 
         return features
 
@@ -173,7 +173,7 @@ class RawSoapQUIP(AtomicDescriptorBase):
                 self.slices_gradients[iframe], grad, grad_species,
                 map_grad2desc
         )
-        
+
 
     def transform(self,X):
 

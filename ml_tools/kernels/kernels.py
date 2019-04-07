@@ -47,6 +47,7 @@ class KernelPower(KernelBase):
         out = power(np.dot(desc1,desc2.T),zeta)
     def fit(self,X):
         return self
+    @return_deepcopy
     def get_params(self,deep=True):
         params = dict(zeta=self.zeta)
         return params
@@ -139,12 +140,12 @@ class KernelPower(KernelBase):
 
         return K_diag
 
-    def pack(self):
-        state = dict(zeta=self.zeta)
+    @return_deepcopy
+    def dumps(self):
+        state = {}
+        state['init_params'] = self.get_params()
+        state['data'] = {}
         return state
-    def unpack(self,state):
-        err_m = 'zetas are not consistent {} != {}'.format(self.zeta,state['zeta'])
-        assert self.zeta == state['zeta'], err_m
 
     def loads(self,state):
         self.zeta = state['zeta']

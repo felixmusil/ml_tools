@@ -7,37 +7,27 @@ try:
 except:
     from scipy.linalg import cho_factor,cho_solve,solve_triangular
 
-def train_krr(k,y,jitter):
-    k[np.diag_indices_from(k)] += jitter
+def train_krr(k,y):
+    # k[np.diag_indices_from(k)] += jitter
     return np.linalg.solve(k, y)
-
-def print_hash(arr):
-    arr = arr.copy()
-    arr.flags.writeable = False
-    print hash(arr.data)
 
 class KRR(RegressorBase):
     _pairwise = True
 
-    def __init__(self,jitter,kernel=None,X_train=None,representation=None,self_energies=None):
+    def __init__(self,delta=1.,kernel=None,X_train=None,representation=None,self_contribution=None):
         # super(KRR,self).__init__()
         RegressorBase.__init__(self)
         # Weights of the krr model
         self.alpha = None
-        self.jitter = jitter
+        self.delta = delta
         self.kernel = kernel
         self.X_train = X_train
         self.representation = representation
-        self.self_energies = self_energies
+        self.self_contribution = self_contribution
 
-    def fit(self,kernel,y,copy=True):
-        '''Train the krr model with trainKernel and trainLabel.'''
-        reg = self.jitter
-        if copy is True:
-            alpha = train_krr(kernel.copy(), y, reg)
-        elif copy is False:
-            alpha = train_krr(kernel, y, reg)
-        self.alpha = alpha
+    def fit(self,kernel,y):
+        '''\alpha = (kernel ) ^{-1} y '''
+        self.alpha = train_krr(kernel, y)
 
     def _preprocess_input(self,X,eval_gradient):
         Natoms = None
@@ -56,15 +46,9 @@ class KRR(RegressorBase):
         return kernel,Natoms,Y_formation
 
     def _get_energy_baseline(self,X):
-        if isinstance(self.self_energies, dict):
-            Y_formation = np.zeros(X.get_nb_sample())
-            for iframe,sp in X.get_ids():
-                Y_formation[iframe] += self.self_energies[sp]
-        elif self.self_energies is None:
-            Y_formation = 0.
-        else:
-            # a constant to be added
-            Y_formation = self.self_energies
+        Y_formation = np.zeros(X.get_nb_sample())
+        for iframe,sp in X.get_ids():
+            Y_formation[iframe] += self.self_contribution[sp]
         return Y_formation
 
     def _get_Natoms(self,X,eval_gradient):
@@ -80,11 +64,13 @@ class KRR(RegressorBase):
         return Natoms
 
     def predict(self,X,eval_gradient=False):
+        '''y_{\star} = kernel_{\star}(\delta^2 \alpha)'''
         kernel,Natoms,Y_formation = self._preprocess_input(X,eval_gradient)
+        alpha = self.alpha * self.delta**2
         if eval_gradient is False:
-            return Y_formation + np.dot(kernel,self.alpha).reshape((-1))
+            return Y_formation + np.dot(kernel,alpha).reshape((-1))
         else:
-            return np.dot(kernel,self.alpha).reshape((-1,3))
+            return np.dot(kernel,alpha).reshape((-1,3))
 
 
     def get_weigths(self):
@@ -92,7 +78,7 @@ class KRR(RegressorBase):
     @return_deepcopy
     def get_params(self,deep=True):
         aa =  dict(jitter=self.jitter,
-                    mean=self.mean,
+                    delta=self.delta,
                     kernel=self.kernel,
                     X_train=self.X_train,
                     representation=self.representation)
@@ -114,8 +100,8 @@ class KRR(RegressorBase):
 class CommiteeKRR(RegressorBase):
     _pairwise = True
 
-    def __init__(self,jitter,X_train,kernel,representation,train_ids=None,self_energies=None):
-        super(CommiteeKRR,self).__init__(jitter,kernel,X_train,representation,self_energies)
+    def __init__(self,jitter,X_train,kernel,representation,train_ids=None,self_contribution=None):
+        super(CommiteeKRR,self).__init__(jitter,kernel,X_train,representation,self_contribution)
 
         self.train_ids = train_ids
 
@@ -130,10 +116,7 @@ class CommiteeKRR(RegressorBase):
 
     def fit(self,kernel,y):
         '''Train the krr model with trainKernel and trainLabel.'''
-        reg = self.jitter
-
-        alpha = train_krr(kernel, y, reg)
-
+        alpha = train_krr(kernel, y)
         self.alphas.append(alpha)
 
     def predict(self,X,eval_gradient=False):

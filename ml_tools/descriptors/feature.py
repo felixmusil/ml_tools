@@ -241,7 +241,7 @@ def get_chunck(strides,chunk_len):
     return frame_ids,chuncks,chuncks_global
 
 
-class FeatureWithGrad(FeatureBase):
+class Representation(FeatureBase):
     def __init__(self, representations=None, gradients=None, Ncenter=None, Nfeature=None, Nneighbour=None, species=None, has_gradients=False,chunk_len=None,hyperparams=None):
         self.chunk_len = chunk_len
         self.hyperparams = hyperparams
@@ -300,7 +300,7 @@ class FeatureWithGrad(FeatureBase):
             for sp in ids_pseudo_input:
                 Ncenter += len(ids_pseudo_input[sp])
 
-            X_pseudo = FeatureWithGrad(Ncenter=Ncenter,Nfeature=Nfeature)
+            X_pseudo = Representation(Ncenter=Ncenter,Nfeature=Nfeature)
             st = 0
             for sp in ids_pseudo_input:
                 rep = self.representations.get_data(sp)
@@ -317,7 +317,7 @@ class FeatureWithGrad(FeatureBase):
         rep = self.representations.get_data()
         strides = self.representations.get_strides()
 
-        X_selected = FeatureWithGrad(Ncenter=Ncenter,Nfeature=Nfeature,strides=strides)
+        X_selected = Representation(Ncenter=Ncenter,Nfeature=Nfeature,strides=strides)
         X_selected.insert(slice(0,Ncenter),rep[:,ids_selected_features])
 
         return X_selected
@@ -367,7 +367,7 @@ class FeatureWithGrad(FeatureBase):
     def get_iterator(self,gradients=False):
         if self.has_gradients is False and gradients is False:
             for rep in self.representations.get_iterator():
-                yield FeatureWithGrad(representations=rep,
+                yield Representation(representations=rep,
                                     has_gradients=False,
                                     chunk_len=self.chunk_len,
                                     hyperparams=self.hyperparams)
@@ -375,7 +375,7 @@ class FeatureWithGrad(FeatureBase):
             for rep in self.representations.get_iterator():
                 grad = self.gradients[rep.structure_slice]
 
-                yield FeatureWithGrad(representations=rep,
+                yield Representation(representations=rep,
                                     gradients=grad,
                                     has_gradients=True,
                                     chunk_len=self.chunk_len,
@@ -385,7 +385,7 @@ class FeatureWithGrad(FeatureBase):
             for grad in self.gradients.get_iterator():
                 rep = self.representations[grad.structure_slice]
 
-                feat = FeatureWithGrad(representations=rep,
+                feat = Representation(representations=rep,
                                     gradients=grad,
                                     has_gradients=True,
                                     chunk_len=self.chunk_len,

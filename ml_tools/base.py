@@ -1,6 +1,7 @@
 from sklearn.base import BaseEstimator, RegressorMixin,TransformerMixin
 import os
 import importlib
+from collections.abc import Iterable
 
 try:
     import autograd.numpy as np
@@ -90,6 +91,16 @@ class BaseIO(object):
                     if isinstance(v, BaseIO) is True:
                          state[name][k] = self.to_dict(v,version)
 
+            elif isinstance(entry, list):
+                ll = []
+                for v in entry:
+                    if isinstance(v, BaseIO) is True:
+                         ll.append(self.to_dict(v,version))
+                    else:
+                        ll.append(v)
+                state[name] = ll
+
+
         data = obj2dict[version](obj.__class__, state)
         return data
 
@@ -101,6 +112,14 @@ class BaseIO(object):
                 for k,v in entry.items():
                     if is_valid_object_dict[version](v) is True:
                          data[name][k] = self.from_dict(v)
+            elif isinstance(entry, list):
+                ll = []
+                for v in entry:
+                    if is_valid_object_dict[version](v) is True:
+                        ll.append(self.from_dict(v))
+                    else:
+                        ll.append(v)
+                data[name] = ll
 
         obj = dict2obj[version](data)
         return obj
@@ -164,8 +183,6 @@ class BaseIO(object):
 
 
 
-
-
 class RegressorBase(BaseIO, BaseEstimator, RegressorMixin):
     def __init__(self):
         super(RegressorBase,self).__init__()
@@ -192,10 +209,36 @@ class AtomicDescriptorBase(BaseIO, BaseEstimator,TransformerMixin):
         return type(self).__name__
 
 class TrainerBase(BaseIO):
-    def __init__(self):
+    def __init__(self,feature_transformations):
         super(TrainerBase,self).__init__()
+        if not isinstance(feature_transformations,list):
+            self.feature_transformations = [feature_transformations]
+
+        try:
+            self.feature_transformations[0].disable_pbar = True
+        except:
+            pass
+
     def fit(self):
         pass
+
+    def get_params(self):
+        return dict(
+          feature_transformations=self.feature_transformations
+        )
+
+
+    @staticmethod
+    def make_self_contribution(y_train,X_train,X_train_nograd,Natoms):
+        y_train_peratom = y_train / Natoms
+        y_mean_per_atom = np.mean(y_mean_per_atom)
+        species = np.unique(X_train.get_species())
+        if X_train_nograd is not None:
+            species = np.unique(list(species).extend(X_train_nograd.get_species()))
+        self_contribution = {}
+        for sp in species:
+            self_contribution[sp] = y_mean_per_atom
+        return self_contribution
 
 class FeatureBase(BaseIO):
     def __init__(self):

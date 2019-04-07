@@ -1,11 +1,168 @@
 from .KRR import KRR,CommiteeKRR
 from ..kernels.kernels import make_kernel
-from ..base import np
+from ..base import np,TrainerBase
 from ..utils import return_deepcopy
 from ..split import ShuffleSplit,KFold
+from collections.abc import Iterable
 
-class TrainerSoR(object):
-    def __init__(self, model_name='krr', kernel_name='gap', self_energies=None,representation=None,is_precomputed=False,has_forces=False, **kwargs):
+
+class FullCovarianceTrainer(TrainerBase):
+    def __init__(self, model_name='krr', kernel_name='gap', self_contribution=None,feature_transformations=None,is_precomputed=False,has_forces=False, **kwargs):
+        super(FullCovarianceTrainer,self).__init__(feature_transformations)
+
+        if has_forces is True:
+            raise NotImplementedError()
+        self.kwargs = kwargs
+        self.kernel = make_kernel(kernel_name,**kwargs)
+        self.model_name = model_name
+
+        self.self_contribution = self_contribution
+
+        self.is_precomputed = is_precomputed
+        self.has_forces = has_forces
+
+        self.Y = None
+        self.Y0 = None
+        self.K = None
+        self.Nr = None
+        self.X_train = None
+        self.Natoms = None
+
+
+
+    @return_deepcopy
+    def get_params(self,deep=True):
+        params = super(FullCovarianceTrainer,self).get_params()
+        params.update(model_name=self.model_name,
+          kernel_name=self.kernel_name,
+          representation=self.representation,
+          is_precomputed=self.is_precomputed,
+          has_forces=self.has_forces,
+          kwargs=self.kwargs,
+          self_contribution=self.self_contribution,)
+        return params
+
+    @return_deepcopy
+    def dumps(self):
+        state = {}
+        state['init_params'] = self.get_params()
+        state['data'] = dict(
+            Y = self.Y,
+            Y0 = self.Y0,
+            Nr = self.Nr,
+            KMM = self.K,
+            X_train = self.X_train,
+            Natoms = self.Natoms,
+        )
+        return state
+
+    def loads(self,data):
+        self.Y = data['Y']
+        self.Y0 = data['Y0']
+        self.Natoms = data['Natoms']
+        self.K = data['K']
+        self.Nr = data['Nr']
+        self.X_train = data['X_train']
+        self.self_contribution = data['self_contribution']
+
+    def precompute(self, y_train, X_train, f_train=None, y_train_nograd=None, X_train_nograd=None):
+        if f_train is not None or X_train_nograd is not None:
+            raise NotImplementedError()
+
+        kernel = self.kernel
+
+        M = X_pseudo.get_nb_sample()
+        Nr1 = X_train.get_nb_sample()
+        Nr2 = 0
+        if X_train_nograd is not None:
+            Nr2 = X_train_nograd.get_nb_sample()
+            y_train = np.concatenate([y_train,y_train_nograd])
+
+        Nr = Nr1 + Nr2
+        Natoms = np.zeros(Nr)
+        for iframe,sp in X_train.get_ids():
+            Natoms[iframe] += 1
+        if X_train_nograd is not None:
+            for iframe,sp in X_train_nograd.get_ids():
+                Natoms[Nr1+iframe] += 1
+
+        if self.self_contribution is None:
+            self.self_contribution = self.make_self_contribution(y_train,X_train,X_train_nograd,Natoms)
+
+        Y0 = np.zeros(Nr)
+
+        for iframe,sp in X_train.get_ids():
+            Y0[iframe] += self.self_contribution[sp]
+        if X_train_nograd is not None:
+            for iframe,sp in X_train_nograd.get_ids():
+                Y0[Nr1+iframe] += self.self_contribution[sp]
+
+        if f_train is None:
+            Ng = 0
+        else:
+            Ng = X_train.get_nb_sample(gradients=True)
+            f = -f_train.reshape((-1,))
+            self.has_forces = True
+
+        N = Nr + Ng * 3
+
+        Y = np.zeros((N,))
+
+        Y[:Nr] = (y_train - Y0) # / Natoms
+
+        if self.has_forces is True:
+            Y[Nr:] = f
+
+        K = np.zeros((N,N))
+        K[:Nr1,:Nr1] = kernel.transform(X_train)
+
+        if X_train_nograd is not None:
+            K[Nr1:Nr,Nr1:Nr] = kernel.transform(X_train_nograd,eval_gradient=(False,False))
+            ee = kernel.transform(X_train,X_train_nograd,eval_gradient=(False,False))
+            K[:Nr1,Nr1:Nr] = ee
+            K[Nr1:Nr,:Nr1] = ee.T
+
+        if f_train is not None:
+            K[Nr:,Nr:] = kernel.transform(X_train,eval_gradient=(True,True))
+            # some other stuff need to be written
+
+        self.Y = Y
+        self.Y0 = Y0
+        self.Natoms = Natoms
+        self.K = K
+
+        self.Nr = Nr
+        self.X_train = X_train
+
+        self.is_precomputed = True
+
+    def fit(self, sigmas=[1e-2], delta=1., y_train=None, X_train=None, f_train=None, y_train_nograd=None, X_train_nograd=None, **model_params):
+        if self.is_precomputed is False:
+            self.precompute(y_train, X_train, f_train, y_train_nograd, X_train_nograd)
+
+        Nr = self.Nr
+        K = self.K * delta**2
+        Y = self.Y.copy()
+
+        K[np.diag_indices_from(K)[:Nr]] += sigmas[0]**2
+        if f_train is not None:
+            raise NotImplementedError()
+            K[np.diag_indices_from(K)[Nr:]] += sigmas[1]**2
+
+        if self.model_name == 'krr':
+            model_params.update(**dict(kernel=self.kernel, X_train=self.X_train, representation=self.representation,self_contribution=self.self_contribution,delta=delta))
+
+            model = KRR(**model_params)
+
+            model.fit(K,Y)
+            self.K = K
+
+        return model
+
+
+
+class SoRTrainer(TrainerBase):
+    def __init__(self, model_name='krr', kernel_name='gap', self_contribution=None,representation=None,is_precomputed=False,has_forces=False, **kwargs):
         self.is_precomputed = is_precomputed
         self.kwargs = kwargs
         self.kernel = make_kernel(kernel_name,**kwargs)
@@ -13,7 +170,7 @@ class TrainerSoR(object):
         self.has_forces = has_forces
         self.representation = representation
         self.representation.disable_pbar = True
-        self.self_energies = self_energies
+        self.self_contribution = self_contribution
 
         self.Y = None
         self.Y0 = None
@@ -31,7 +188,7 @@ class TrainerSoR(object):
           is_precomputed=self.is_precomputed,
           has_forces=self.has_forces,
           kwargs=self.kwargs,
-          self_energies=self.self_energies,
+          self_contribution=self.self_contribution,
         )
 
     @return_deepcopy
@@ -57,7 +214,7 @@ class TrainerSoR(object):
         self.KNM = data['KNM']
         self.Nr = data['Nr']
         self.X_pseudo = data['X_pseudo']
-        self.self_energies = data['self_energies']
+        self.self_contribution = data['self_contribution']
 
     def precompute(self, y_train, X_train, X_pseudo, f_train=None, y_train_nograd=None, X_train_nograd=None):
         kernel = self.kernel
@@ -70,19 +227,25 @@ class TrainerSoR(object):
             y_train = np.concatenate([y_train,y_train_nograd])
 
         Nr = Nr1 + Nr2
+        Natoms = np.zeros(Nr)
+        for iframe,sp in X_train.get_ids():
+            Natoms[iframe] += 1
+        if X_train_nograd is not None:
+            for iframe,sp in X_train_nograd.get_ids():
+                Natoms[Nr1+iframe] += 1
 
-        if self.self_energies is None:
-            Y0 = y_train.mean()
-        else:
-            Y0 = np.zeros(Nr)
-            Natoms = np.zeros(Nr)
-            for iframe,sp in X_train.get_ids():
-                Y0[iframe] += self.self_energies[sp]
-                Natoms[iframe] += 1
-            if X_train_nograd is not None:
-                for iframe,sp in X_train_nograd.get_ids():
-                    Y0[Nr1+iframe] += self.self_energies[sp]
-                    Natoms[Nr1+iframe] += 1
+        if self.self_contribution is None:
+            self.self_contribution = self.make_self_contribution(y_train,X_train,X_train_nograd,Natoms)
+
+
+        Y0 = np.zeros(Nr)
+
+        for iframe,sp in X_train.get_ids():
+            Y0[iframe] += self.self_contribution[sp]
+        if X_train_nograd is not None:
+            for iframe,sp in X_train_nograd.get_ids():
+                Y0[Nr1+iframe] += self.self_contribution[sp]
+
         if f_train is None:
             Ng = 0
 
@@ -125,13 +288,13 @@ class TrainerSoR(object):
 
         self.is_precomputed = True
 
-    def fit(self, lambdas, jitter, y_train=None, X_train=None, X_pseudo=None, f_train=None, y_train_nograd=None, X_train_nograd=None):
+    def fit(self, lambdas, delta=1., y_train=None, X_train=None, X_pseudo=None, f_train=None, y_train_nograd=None, X_train_nograd=None, **model_params):
         if self.is_precomputed is False:
             self.precompute(y_train, X_train, X_pseudo, f_train, y_train_nograd, X_train_nograd)
         Nr = self.Nr
-        KNMp = self.KNM.copy()
+        KNMp = self.KNM * delta**2
         Yp = self.Y.copy()
-
+        KMMp = self.KMM * delta**2
         # lambdas[0] is provided per atom
         KNMp[:Nr] /= lambdas[0] * np.sqrt(self.Natoms).reshape((-1,1))
         Yp[:Nr] /= lambdas[0] * np.sqrt(self.Natoms)
@@ -140,12 +303,10 @@ class TrainerSoR(object):
           Yp[Nr:] /= lambdas[1]
 
         if self.model_name == 'krr':
-            if self.self_energies is None:
-                aa = self.Y0
-            else:
-                aa = self.self_energies
-            model = KRR(jitter, self.kernel, self.X_pseudo, self.representation,aa)
-            K = self.KMM + np.dot(KNMp.T,KNMp)
+            model_params.update(**dict(kernel=self.kernel, X_train=self.X_pseudo, representation=self.representation,self_contribution=self.self_contribution,delta=delta))
+
+            model = KRR(**model_params)
+            K = KMMp + np.dot(KNMp.T,KNMp)
             Y = np.dot(KNMp.T,Yp)
             model.fit(K,Y)
             self.K = K
@@ -153,10 +314,10 @@ class TrainerSoR(object):
         return model
 
 
-class TrainerCommiteeSoR(TrainerSoR):
+class CommiteeSoRTrainer(SoRTrainer):
     def __init__(self,n_models, sampling_method='resample 0.66', seed=10,
-    prediction_repeat_threshold=None,model_name='krr', kernel_name='gap', self_energies=None,representation=None,is_precomputed=False,has_forces=False, **kwargs):
-        super(TrainerCommiteeSoR,self).__init__(model_name, kernel_name, self_energies,representation,is_precomputed,has_forces, **kwargs)
+    prediction_repeat_threshold=None,model_name='krr', kernel_name='gap', self_contribution=None,representation=None,is_precomputed=False,has_forces=False, **kwargs):
+        super(CommiteeSoRTrainer,self).__init__(model_name, kernel_name, self_contribution,representation,is_precomputed,has_forces, **kwargs)
         self.sampling_method = sampling_method
         self.n_models = n_models
         self.seed = seed
@@ -194,12 +355,12 @@ class TrainerCommiteeSoR(TrainerSoR):
             splitter = KFold(n_splits=2,shuffle=True,random_state=self.seed)
 
         if self.model_name == 'krr':
-            if self.self_energies is None:
+            if self.self_contribution is None:
                 aa = self.Y0
             else:
-                aa = self.self_energies
+                aa = self.self_contribution
 
-            model = CommiteeKRR(self.jitter, self.kernel, self.X_pseudo, self.representation,self_energies=aa)
+            model = CommiteeKRR(self.jitter, self.kernel, self.X_pseudo, self.representation,self_contribution=aa)
 
             k = self.prediction_repeat_threshold
             model = self.fit_krr(model,splitter,k)
@@ -248,7 +409,7 @@ class TrainerCommiteeSoR(TrainerSoR):
 
     @return_deepcopy
     def get_params(self,deep=True):
-        aa = super(TrainerCommiteeSoR,self).get_params()
+        aa = super(CommiteeSoRTrainer,self).get_params()
         aa['n_models'] = n_models
         aa['sampling_method'] = sampling_method
         aa['seed'] = seed
@@ -257,9 +418,9 @@ class TrainerCommiteeSoR(TrainerSoR):
 
     @return_deepcopy
     def dumps(self):
-        state = super(TrainerCommiteeSoR,self).dumps()
+        state = super(CommiteeSoRTrainer,self).dumps()
         state['init_params'] = self.get_params()
         return state
 
     def loads(self,data):
-        super(TrainerCommiteeSoR,self).loads(data)
+        super(CommiteeSoRTrainer,self).loads(data)
