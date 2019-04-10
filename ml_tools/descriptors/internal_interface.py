@@ -71,7 +71,7 @@ class RawSoapInternal(AtomicDescriptorBase):
         self.atomic_types = [[]]*len(frames)
         for iframe, frame in enumerate(frames):
             numbers = frame.get_atomic_numbers()
-            self.atomic_types[iframe] = numbers
+            self.atomic_types[iframe] = np.setdiff1d(numbers,nocenters)
 
         Nfeature = self.get_Nsoap(global_species,nmax,lmax)
 
@@ -112,11 +112,9 @@ class RawSoapInternal(AtomicDescriptorBase):
         nocenters = self.soap_params['nocenters']
 
         frames = X
-        Nsoap = get_Nsoap(global_species,nmax,lmax)
-        slices,strides = get_frame_slices(frames,nocenters=nocenters,
+        Nsoap = self.get_Nsoap(global_species,nmax,lmax)
+        Nenv,slices,strides = get_frame_slices(frames,nocenters=nocenters,
                                             fast_avg=self.fast_avg )
-
-        Nenv = strides[-1]
 
         Nframe = len(frames)
 

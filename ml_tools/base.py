@@ -1,7 +1,11 @@
 from sklearn.base import BaseEstimator, RegressorMixin,TransformerMixin
 import os
 import importlib
-from collections.abc import Iterable
+
+try:
+    from collections.abc import Iterable
+except:
+    from collections import Iterable
 
 try:
     import autograd.numpy as np
@@ -91,14 +95,14 @@ class BaseIO(object):
                     if isinstance(v, BaseIO) is True:
                          state[name][k] = self.to_dict(v,version)
 
-            elif isinstance(entry, list):
-                ll = []
-                for v in entry:
-                    if isinstance(v, BaseIO) is True:
-                         ll.append(self.to_dict(v,version))
-                    else:
-                        ll.append(v)
-                state[name] = ll
+                    elif isinstance(v, list):
+                        ll = []
+                        for val in v:
+                            if isinstance(val, BaseIO) is True:
+                                ll.append(self.to_dict(val,version))
+                            else:
+                                ll.append(val)
+                        state[name][k] = ll
 
 
         data = obj2dict[version](obj.__class__, state)
@@ -112,14 +116,16 @@ class BaseIO(object):
                 for k,v in entry.items():
                     if is_valid_object_dict[version](v) is True:
                          data[name][k] = self.from_dict(v)
-            elif isinstance(entry, list):
-                ll = []
-                for v in entry:
-                    if is_valid_object_dict[version](v) is True:
-                        ll.append(self.from_dict(v))
-                    else:
-                        ll.append(v)
-                data[name] = ll
+                    elif isinstance(v, list):
+                        ll = []
+                        for val in v:
+                            if is_valid_object_dict[version](val) is True:
+                                ll.append(self.from_dict(val))
+                            else:
+                                ll.append(val)
+
+                        data[name][k] = ll
+
 
         obj = dict2obj[version](data)
         return obj
@@ -182,10 +188,29 @@ class BaseIO(object):
                         data[k] = np.array(v[1])
 
 
-
 class RegressorBase(BaseIO, BaseEstimator, RegressorMixin):
-    def __init__(self):
+    def __init__(self,feature_transformations,has_global_targets):
         super(RegressorBase,self).__init__()
+
+        if feature_transformations is None:
+            raise RuntimeError()
+
+        elif not isinstance(feature_transformations,list):
+            self.feature_transformations = [feature_transformations]
+        elif isinstance(feature_transformations,list):
+            self.feature_transformations = feature_transformations
+        else:
+            raise RuntimeError()
+
+        # feature_transformations should at least have 1 AtomicDescriptorBase
+        # in the first position of the list
+        self.feature_transformations[0].disable_pbar = True
+
+        if isinstance(has_global_targets, bool):
+            self.has_global_targets = has_global_targets
+        else:
+            raise RuntimeError()
+
     def fit(self,X,y=None):
         return self
     def transform(self,X,y=None):
@@ -209,22 +234,35 @@ class AtomicDescriptorBase(BaseIO, BaseEstimator,TransformerMixin):
         return type(self).__name__
 
 class TrainerBase(BaseIO):
-    def __init__(self,feature_transformations):
+    def __init__(self,feature_transformations,has_global_targets):
         super(TrainerBase,self).__init__()
-        if not isinstance(feature_transformations,list):
-            self.feature_transformations = [feature_transformations]
 
-        try:
-            self.feature_transformations[0].disable_pbar = True
-        except:
-            pass
+        if feature_transformations is None:
+            raise RuntimeError()
+
+        elif not isinstance(feature_transformations,list):
+            self.feature_transformations = [feature_transformations]
+        elif isinstance(feature_transformations,list):
+            self.feature_transformations = feature_transformations
+        else:
+            raise RuntimeError()
+
+        # feature_transformations should at least have 1 AtomicDescriptorBase
+        # in the first position of the list
+        self.feature_transformations[0].disable_pbar = True
+
+        if isinstance(has_global_targets, bool):
+            self.has_global_targets = has_global_targets
+        else:
+            raise RuntimeError()
 
     def fit(self):
         pass
 
     def get_params(self):
         return dict(
-          feature_transformations=self.feature_transformations
+          feature_transformations=self.feature_transformations,
+          has_global_targets=self.has_global_targets,
         )
 
 

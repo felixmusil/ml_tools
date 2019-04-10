@@ -1,2 +1,2 @@
-from .kernels import make_kernel
+from .kernels import make_kernel,KernelPower,KernelSum
 

@@ -28,6 +28,7 @@ def make_kernel(name, **kwargs):
 
 class KernelPower(KernelBase):
     def __init__(self, kernel_type, zeta):
+        super(KernelPower,self).__init__()
         self.zeta = zeta
 
         self.kernel_type = kernel_type
@@ -44,7 +45,10 @@ class KernelPower(KernelBase):
     # def __init__(self,zeta):
     #     self.zeta = zeta
     def K(self, out, zeta, desc1, ids1, desc2, ids2):
-        out = power(np.dot(desc1,desc2.T),zeta)
+        print out.shape,desc1.shape,desc2.shape
+        np.dot(desc1,desc2.T,out=out)
+        power(out,zeta,out=out)
+
     def fit(self,X):
         return self
     @return_deepcopy
@@ -53,8 +57,8 @@ class KernelPower(KernelBase):
         return params
     def set_params(self,**params):
         self.zeta = params['zeta']
-    def transform(self,X,X_train=None):
-        return self(X,Y=X_train)
+    def transform(self,X,X_train=None,eval_gradient=(False,False)):
+        return self(X,Y=X_train,eval_gradient=eval_gradient)
 
     def __call__(self, X, Y=None,zeta=None, eval_gradient=(False,False)):
         # X should be shape=(Nsample,Mfeature)
@@ -85,19 +89,20 @@ class KernelPower(KernelBase):
             Y = X
 
         if issparse(Xi) is False:
-            N = X.get_nb_sample(eval_gradient[0])
-            M = Y.get_nb_sample(eval_gradient[1])
+            N = X.get_nb_sample(eval_gradient[0],is_global=False)
+            M = Y.get_nb_sample(eval_gradient[1],is_global=False)
 
             Xi = X.get_data()
-            Xids = X.get_ids()
+            Xids = X.get_ids(is_global=False)
             Yi = Y.get_data()
-            Yids = Y.get_ids()
+            Yids = Y.get_ids(is_global=False)
 
             if eval_gradient[0] is True:
                 return self.dk_dr(X,Y)
             elif eval_gradient[0] is False:
                 kernel = np.zeros((N,M))
-                return self.k(kernel, zeta, Xi, Xids, Yi, Yids)
+                self.k(kernel, zeta, Xi, Xids, Yi, Yids)
+                return kernel
 
         elif issparse(Xi) is True:
             N, M = Xi.shape[0],Yi.shape[0]
@@ -152,6 +157,7 @@ class KernelPower(KernelBase):
 
 class KernelSum(KernelBase):
     def __init__(self,kernel_type,**kwargs):
+        super(KernelSum,self).__init__()
         if 'kwargs' in kwargs:
             kwargs = kwargs['kwargs']
 

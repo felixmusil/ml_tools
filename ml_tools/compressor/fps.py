@@ -4,6 +4,8 @@ from ..base import np,sp
 from ..base import CompressorBase,FeatureBase
 from ..utils import tqdm_cs,return_deepcopy
 import matplotlib.pyplot as plt
+from ..kernels import KernelPower,KernelSum
+
 
 class FPSFilter(CompressorBase):
     def __init__(self,Nselect,kernel,act_on='sample',precompute_kernel=True,disable_pbar=True):
@@ -14,10 +16,17 @@ class FPSFilter(CompressorBase):
             # give a matrix kernel
             self.precompute_kernel = None
         else:
-            # give a function or class kernel
+            # give class kernel
             self.precompute_kernel = precompute_kernel
 
         self.kernel = kernel
+        if isinstance(kernel, KernelPower):
+            self.is_global = False
+        elif isinstance(kernel, KernelSum):
+            self.is_global = True
+        else:
+            raise NotImplementedError()
+
         self.disable_pbar = disable_pbar
         self.transformation_mat = None
         if act_on in ['sample','feature','feature A transform']:
@@ -44,7 +53,6 @@ class FPSFilter(CompressorBase):
             gradients = False
             if gradients is False:
                 x = X
-
             if is_feature_selection is True:
                 x = x.T
         elif is_feature_selection:
@@ -53,12 +61,11 @@ class FPSFilter(CompressorBase):
             x = X
 
 
-
         if dry_run and isinstance(X,dict):
             Nselect = x['feature_matrix'].shape[0]
         elif dry_run:
             if isinstance(X,FeatureBase):
-                Nselect = x.get_nb_sample(gradients)
+                Nselect = x.get_nb_sample(gradients,is_global=self.is_global)
             else:
                 Nselect = x.shape[0]
         else:

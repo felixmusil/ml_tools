@@ -1,5 +1,5 @@
 import numpy as np
-from ..base import FeatureBase
+from ..base import FeatureBase, is_npy
 from ..utils import return_deepcopy
 # from collections.abc import Iterable
 
@@ -90,8 +90,15 @@ class DenseFeature(FeatureBase):
             mapping = self.mapping[sp_mask]
         return mapping
 
-    def get_ids(self):
-        ids = np.concatenate([self.mapping,self.species],axis=1)
+    def get_ids(self,is_global=True):
+        if is_global is True:
+            ids = np.concatenate([self.mapping,self.species],axis=1)
+        elif is_global is False and self.has_gradients is False:
+            Ncenter = self.shape[0]
+            ids = np.concatenate([np.arange(Ncenter)[:,None],self.species],axis=1)
+        else:
+            raise NotImplementedError()
+
         return np.asarray(ids,dtype=int)
 
     def get_nb_elements(self,strides,specie=None):
@@ -281,11 +288,12 @@ class Representation(FeatureBase):
         elif gradients is True:
             return self.gradients.get_mapping(specie)
 
-    def get_ids(self,gradients=False):
+    def get_ids(self,gradients=False,is_global=True):
         if gradients is False:
-            return self.representations.get_ids()
+            return self.representations.get_ids(is_global)
         elif gradients is True:
             return self.gradients.get_ids()
+
 
     def insert(self, slice_representations, representations, species_representations, representations_mapping, slice_gradients=None, gradients=None, species_gradients=None, gradient_mapping=None):
         self.representations.insert(slice_representations,representations,species_representations,representations_mapping)
@@ -308,37 +316,51 @@ class Representation(FeatureBase):
                     nd = st + 1
                     X_pseudo.insert(slice(st,nd),rep[idx],np.array([sp]),0)
                     st = nd
+        elif is_npy(ids_pseudo_input) is True:
+            Nfeature = self.representations.get_nb_feature()
+            Ncenter = ids_pseudo_input.shape[0]
+
+            X_pseudo = Representation(Ncenter=Ncenter,Nfeature=Nfeature)
+            rep = self.representations.get_data()
+            species = self.representations.get_species()
+            st = 0
+            for idx in range(Ncenter):
+                nd = st + 1
+                X_pseudo.insert(slice(st,nd),rep[idx],np.array([species[idx]]),0)
+                st = nd
         return X_pseudo
 
     def extract_feature_selection(self,ids_selected_features):
-        raise NotImplementedError()
-        Ncenter = self.representations.get_nb_environmental_elements()
         Nfeature = len(ids_selected_features)
         rep = self.representations.get_data()
-        strides = self.representations.get_strides()
-
-        X_selected = Representation(Ncenter=Ncenter,Nfeature=Nfeature,strides=strides)
-        X_selected.insert(slice(0,Ncenter),rep[:,ids_selected_features])
+        new_rep = rep[:,ids_selected_features]
+        Ncenter = rep.shape[0]
+        ids = self.get_ids()
+        X_selected = Representation(Ncenter=Ncenter,Nfeature=Nfeature)
+        st = 0
+        for icenter,(iframe,sp) in enumerate(ids):
+            nd = st + 1
+            X_pseudo.insert(slice(st,nd),new_rep[icenter],np.array([sp]),0)
+            st = nda
 
         return X_selected
 
-    def get_nb_sample(self,gradients=False,specie=None):
-        if gradients is False:
-            return self.representations.get_nb_sample(specie)
-        elif gradients is True:
-            return self.gradients.get_nb_sample(specie)
+    def get_nb_sample(self,gradients=False,specie=None,is_global=True):
+        if is_global is True:
+            if gradients is False:
+                return self.representations.get_nb_sample(specie)
+            elif gradients is True:
+                return self.gradients.get_nb_sample(specie)
+        elif is_global is False:
+            return self.get_nb_environmental_elements(specie,gradients)
 
     def get_nb_environmental_elements(self,specie=False,gradients=False):
-        if specie is False:
-            specie = self.current_specie
         if gradients is False:
             return self.representations.get_nb_environmental_elements(specie)
         if gradients is True:
             return self.gradients.get_nb_environmental_elements(specie)
 
     def get_reduced_data_slice(self,specie=False,gradients=False):
-        if specie is False:
-            specie = self.current_specie
         if gradients is False:
             return self.representations.get_reduced_data_slice(specie)
         if gradients is True:
