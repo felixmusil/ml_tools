@@ -141,7 +141,7 @@ class FullCovarianceTrainer(TrainerBase):
 
         self.is_precomputed = True
 
-    def fit(self, sigmas=[1e-2], delta=1.,train_ids=None, y_train=None, X_train=None, f_train=None, y_train_nograd=None, X_train_nograd=None, **model_params):
+    def fit(self, lambdas=[1e-2], jitter=1e-9, train_ids=None, y_train=None, X_train=None, f_train=None, y_train_nograd=None, X_train_nograd=None):
         if self.is_precomputed is False:
             self.precompute(y_train, X_train, f_train, y_train_nograd, X_train_nograd)
 
@@ -149,22 +149,26 @@ class FullCovarianceTrainer(TrainerBase):
             raise NotImplementedError()
         Y,K,Nr =  self.get_subset(train_ids)
 
-        K *= delta**2
+        delta = np.std(Y[:Nr]) / np.mean(K.diagonal())
+
+        K = K.copy()
         Y = Y.copy()
 
-        K[np.diag_indices_from(K)[:Nr]] += sigmas[0]**2
+        # jitter for numerical stability
+        K[np.diag_indices_from(K)[:Nr]] += lambdas[0]**2 / delta **2 + jitter
 
         if f_train is not None:
             raise NotImplementedError()
-            K[np.diag_indices_from(K)[Nr:]] += sigmas[1]**2
+            K[np.diag_indices_from(K)[Nr:]] += lambdas[1]**2 / delta **2 + jitter
 
         if self.model_name == 'krr':
-            model_params.update(**dict(kernel=self.kernel, X_train=self.X_train, feature_transformations=self.feature_transformations,has_global_targets=self.has_global_targets,self_contribution=self.self_contribution,delta=delta))
+            model_params = dict(kernel=self.kernel, X_train=self.X_train, feature_transformations=self.feature_transformations,has_global_targets=self.has_global_targets,self_contribution=self.self_contribution)
 
             model = KRR(**model_params)
 
             model.fit(K,Y)
             self.K = K
+            self.delta = delta
 
         return model
 
@@ -302,29 +306,34 @@ class SoRTrainer(TrainerBase):
 
         self.is_precomputed = True
 
-    def fit(self, lambdas, delta=1., train_ids=None, y_train=None, X_train=None, X_pseudo=None, f_train=None, y_train_nograd=None, X_train_nograd=None, **model_params):
+    def fit(self, lambdas, jitter=1e-8, train_ids=None, y_train=None, X_train=None, X_pseudo=None, f_train=None, y_train_nograd=None, X_train_nograd=None, **model_params):
         if self.is_precomputed is False:
             self.precompute(y_train, X_train, X_pseudo, f_train, y_train_nograd, X_train_nograd)
-        Y,KNMp, KMMp,Nr = self.get_subset(train_ids)
-        
-        KNMp = KNM * delta**2
+        Y,KNM,KMM,Nr = self.get_subset(train_ids)
+
+        delta = np.std(Y[:Nr])
+
+        KNMp = KNM.copy()
         Yp = Y.copy()
-        KMMp = KMM * delta**2
+        KMMp = KMM.copy()
         # lambdas[0] is provided per atom
-        KNMp[:Nr] /= lambdas[0] * np.sqrt(self.Natoms).reshape((-1,1))
-        Yp[:Nr] /= lambdas[0] * np.sqrt(self.Natoms)
+        KNMp[:Nr] /=  lambdas[0] / delta * np.sqrt(self.Natoms)[:,None]
+        Yp[:Nr] /= lambdas[0] / delta * np.sqrt(self.Natoms)
+        # jitter for numerical stability
+        KMMp[np.diag_indices_from(KMMp)] += jitter
         if self.has_forces is True:
-          KNMp[Nr:] /= lambdas[1]
-          Yp[Nr:] /= lambdas[1]
+          KNMp[Nr:] /= lambdas[1] / delta
+          Yp[Nr:] /= lambdas[1] / delta
 
         if self.model_name == 'krr':
-            model_params.update(**dict(kernel=self.kernel, X_train=self.X_pseudo, feature_transformations=self.feature_transformations,has_global_targets=self.has_global_targets,self_contribution=self.self_contribution,delta=delta))
+            model_params = dict(kernel=self.kernel, X_train=self.X_pseudo, feature_transformations=self.feature_transformations,has_global_targets=self.has_global_targets,self_contribution=self.self_contribution)
 
             model = KRR(**model_params)
             K = KMMp + np.dot(KNMp.T,KNMp)
             Y = np.dot(KNMp.T,Yp)
             model.fit(K,Y)
             self.K = K
+            self.delta = delta
 
         return model
 

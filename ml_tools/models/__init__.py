@@ -1,4 +1,4 @@
-from .KRR import KRR,KRRFastCV
+from .KRR import KRR
 
 from .trainers import SoRTrainer,FullCovarianceTrainer
 

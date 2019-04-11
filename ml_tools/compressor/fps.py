@@ -47,41 +47,37 @@ class FPSFilter(CompressorBase):
 
     def fit(self,X,dry_run=False):
         is_feature_selection = self.act_on in ['feature','feature A transform']
-        if isinstance(X,dict) and is_feature_selection:
-            x = X['feature_matrix'].T
-        elif isinstance(X,FeatureBase):
-            gradients = False
-            if gradients is False:
-                x = X
-            if is_feature_selection is True:
-                x = x.T
-        elif is_feature_selection:
-            x = X.T
+
+        if is_feature_selection is True:
+            X = X.T
+
+
+
+
+
+
+
+        if isinstance(X,FeatureBase):
+            Nselect = X.get_nb_sample(is_global=self.is_global)
         else:
-            x = X
+            Nselect = X.shape[0]
 
 
-        if dry_run and isinstance(X,dict):
-            Nselect = x['feature_matrix'].shape[0]
-        elif dry_run:
-            if isinstance(X,FeatureBase):
-                Nselect = x.get_nb_sample(gradients,is_global=self.is_global)
-            else:
-                Nselect = x.shape[0]
-        else:
-            Nselect = self.Nselect
-
-        if self.precompute_kernel is True:
-            kernel = self.kernel.transform(x)
+        if self.precompute_kernel is True or self.precompute_kernel is None:
+            if self.precompute_kernel is True:
+                kernel = self.kernel.transform(X)
+            elif self.precompute_kernel is None:
+                kernel = self.kernel
             ifps, dfps = do_fps_kernel(kernel,d=Nselect,disable_pbar=self.disable_pbar)
         elif self.precompute_kernel is False:
-            ifps, dfps = do_fps_feature(x,d=Nselect,kernel=self.kernel,disable_pbar=self.disable_pbar)
-        elif self.precompute_kernel is None:
-            ifps, dfps = do_fps_kernel(self.kernel,d=Nselect,disable_pbar=self.disable_pbar)
-
+            if self.is_global is False:
+                X = X.get_local_view()
+            n = X.get_nb_sample(is_global=self.is_global)
+            ifps, dfps = do_fps_feature(X,n=n,d=Nselect,kernel=self.kernel,disable_pbar=self.disable_pbar)
 
         if self.act_on == 'feature A transform':
-            self.transformation_mat = get_A_matrix(x.T[:,ifps],x.T)
+            rep = X.get_data()
+            self.transformation_mat = get_A_matrix(rep[:,ifps],rep)
 
         self.selected_ids = ifps
         self.min_distance2 = dfps
@@ -130,22 +126,22 @@ class FPSFilter(CompressorBase):
         self.trained = data['trained']
 
 
-def do_fps_feature(x=None, d=0,init=0,disable_pbar=True,kernel=None):
-    if d == 0 : d = x.shape[0]
-    n = x.shape[0]
+def do_fps_feature(x=None,n=0, d=0,init=0,disable_pbar=True,kernel=None):
+
     iy = np.zeros(d, int)
     # faster evaluation of Euclidean distance
     n2 = np.zeros((n,))
     for ii in range(n):
-        n2[ii] = kernel(x[ii],x[ii])
+        n2[ii] = kernel.transform(x[ii],x[ii])
 
     iy[0] = init
-    dl = n2 + n2[iy[0]] - 2* kernel(x, x[iy[0]])
+    dl = n2 + n2[iy[0]] - 2* np.squeeze(kernel.transform(x, x[iy[0]]))
     lmin = np.zeros(d)
+
     for i in tqdm_cs(range(1,d),leave=False,desc='fps',disable=disable_pbar):
         iy[i] = np.argmax(dl)
         lmin[i-1] = dl[iy[i]]
-        nd = n2 + n2[iy[i]] - 2*kernel(x,x[iy[i]])
+        nd = n2 + n2[iy[i]] - 2* np.squeeze(kernel.transform(x,x[iy[i]]))
         dl = np.minimum(dl, nd)
     return iy, lmin
 

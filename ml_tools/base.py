@@ -93,7 +93,7 @@ class BaseIO(object):
             if isinstance(entry, dict):
                 for k,v in entry.items():
                     if isinstance(v, BaseIO) is True:
-                         state[name][k] = self.to_dict(v,version)
+                        state[name][k] = self.to_dict(v,version)
 
                     elif isinstance(v, list):
                         ll = []
@@ -269,7 +269,7 @@ class TrainerBase(BaseIO):
     @staticmethod
     def make_self_contribution(y_train,X_train,X_train_nograd,Natoms):
         y_train_peratom = y_train / Natoms
-        y_mean_per_atom = np.mean(y_mean_per_atom)
+        y_mean_per_atom = np.mean(y_train_peratom)
         species = np.unique(X_train.get_species())
         if X_train_nograd is not None:
             species = np.unique(list(species).extend(X_train_nograd.get_species()))

@@ -14,12 +14,11 @@ def train_krr(k,y):
 class KRR(RegressorBase):
     _pairwise = True
 
-    def __init__(self,delta=1.,kernel=None,X_train=None,feature_transformations=None,has_global_targets=True,self_contribution=None):
+    def __init__(self,kernel=None,X_train=None,feature_transformations=None,has_global_targets=True,self_contribution=None):
         super(KRR,self).__init__(feature_transformations,has_global_targets)
         # RegressorBase.__init__(self)
         # Weights of the krr model
         self.alpha = None
-        self.delta = delta
         self.kernel = kernel
         self.X_train = X_train
         self.self_contribution = self_contribution
@@ -68,9 +67,8 @@ class KRR(RegressorBase):
         return Natoms
 
     def predict(self,X,eval_gradient=False):
-        '''y_{\star} = kernel_{\star}(\delta^2 \alpha)'''
         kernel,Natoms,Y0 = self._preprocess_input(X,eval_gradient)
-        alpha = self.alpha * self.delta**2
+        alpha = self.alpha
         if eval_gradient is False:
             return Y0 + np.dot(kernel,alpha).reshape((-1))
         else:
@@ -82,7 +80,6 @@ class KRR(RegressorBase):
     @return_deepcopy
     def get_params(self,deep=True):
         aa =  dict(jitter=self.jitter,
-                    delta=self.delta,
                     kernel=self.kernel,
                     X_train=self.X_train,
                     representation=self.representation)

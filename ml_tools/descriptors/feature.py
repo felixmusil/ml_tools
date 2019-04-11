@@ -70,6 +70,11 @@ class DenseFeature(FeatureBase):
         self.species = data['species']
         self.mapping = data['mapping']
 
+    def get_nb_frame(self):
+        if self.has_gradients is True:
+            return self.mapping[:,2].max()+1
+        elif self.has_gradients is False:
+            return self.mapping[:,0].max()+1
 
     def get_species(self):
         return self.species
@@ -193,6 +198,9 @@ class DenseFeature(FeatureBase):
         return data_slice
 
     def __getitem__(self, structure_slice):
+        if isinstance(structure_slice, int):
+            structure_slice = slice(structure_slice,structure_slice+1)
+
         data_slice = self.get_data_slice(structure_slice)
         st = structure_slice.start
         nd = structure_slice.stop + 1
@@ -271,6 +279,26 @@ class Representation(FeatureBase):
         else:
             self.gradients = None
 
+    def __getitem__(self, structure_slice):
+        rep = self.representations[structure_slice]
+        Ncenter = rep.shape[0]
+        if self.has_gradients is True:
+            grad = self.gradients[structure_slice]
+            Nneighbour = grad.shape[0]
+        else:
+            Nneighbour = self.Nneighbour
+            grad = None
+
+        obj_slice = Representation(chunk_len=self.chunk_len,
+                                    hyperparams=self.hyperparams,
+                                    Ncenter=Ncenter,
+                                    Nfeature=self.Nfeature,
+                                    Nneighbour=Nneighbour,
+                                    has_gradients=self.has_gradients,
+                                    representations=rep,
+                                    gradients=grad)
+        return obj_slice
+
     def get_species(self,gradients=False):
         if gradients is False:
             return self.representations.get_species()
@@ -330,6 +358,18 @@ class Representation(FeatureBase):
                 st = nd
         return X_pseudo
 
+    def get_nb_frame(self):
+        return self.representations.get_nb_frame()
+
+    def get_local_view(self):
+        # works only for the representation (not the gradients)
+        Nframes = self.get_nb_frame()
+        obj = self[:Nframes]
+        Ncenters = obj.get_nb_environmental_elements()
+        # obj.representations.mapping = np.arange(Ncenters)[:,None]
+        obj.representations.structure_strides = np.arange(Ncenters+1)
+        return obj
+
     def extract_feature_selection(self,ids_selected_features):
         Nfeature = len(ids_selected_features)
         rep = self.representations.get_data()
@@ -340,10 +380,24 @@ class Representation(FeatureBase):
         st = 0
         for icenter,(iframe,sp) in enumerate(ids):
             nd = st + 1
-            X_pseudo.insert(slice(st,nd),new_rep[icenter],np.array([sp]),0)
-            st = nda
+            X_selected.insert(slice(st,nd),new_rep[icenter],np.array([sp]),0)
+            st = nd
 
         return X_selected
+
+    def get_transpose(self):
+        rep = self.representations.get_data()
+        Ncenter,Nfeature = rep.shape
+        ids = self.get_ids()
+        X = Representation(Ncenter=Nfeature,Nfeature=Ncenter)
+        st = 0
+        for ifeature in range(Nfeature):
+            nd = st + 1
+            X.insert(slice(st,nd),rep[:,ifeature],np.array([0]),0)
+            st = nd
+        return X
+
+    T = property(get_transpose)
 
     def get_nb_sample(self,gradients=False,specie=None,is_global=True):
         if is_global is True:
@@ -354,17 +408,11 @@ class Representation(FeatureBase):
         elif is_global is False:
             return self.get_nb_environmental_elements(specie,gradients)
 
-    def get_nb_environmental_elements(self,specie=False,gradients=False):
+    def get_nb_environmental_elements(self,specie=None,gradients=False):
         if gradients is False:
             return self.representations.get_nb_environmental_elements(specie)
         if gradients is True:
             return self.gradients.get_nb_environmental_elements(specie)
-
-    def get_reduced_data_slice(self,specie=False,gradients=False):
-        if gradients is False:
-            return self.representations.get_reduced_data_slice(specie)
-        if gradients is True:
-            return self.gradients.get_reduced_data_slice(specie)
 
     def set_chunk_len(self, chunk_len):
         if chunk_len is None:

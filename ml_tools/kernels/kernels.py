@@ -45,7 +45,7 @@ class KernelPower(KernelBase):
     # def __init__(self,zeta):
     #     self.zeta = zeta
     def K(self, out, zeta, desc1, ids1, desc2, ids2):
-        print out.shape,desc1.shape,desc2.shape
+        # print out.shape,desc1.shape,desc2.shape
         np.dot(desc1,desc2.T,out=out)
         power(out,zeta,out=out)
 

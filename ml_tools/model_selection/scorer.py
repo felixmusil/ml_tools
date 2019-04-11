@@ -67,8 +67,7 @@ class CrossValidationScorer(BaseEstimator):
         self.params = state['params']
         self.predictions = state['predictions']
 
-
-class KRRFastCV(BaseEstimator):
+class KRRFastCVScorer(BaseEstimator):
     """
     taken from:
     An, S., Liu, W., & Venkatesh, S. (2007).

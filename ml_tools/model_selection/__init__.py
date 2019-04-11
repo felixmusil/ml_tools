@@ -1,2 +1,2 @@
-from .scorer import CrossValidationScorer,SoRCrossValidationScorer
+from .scorer import KRRFastCVScorer,CrossValidationScorer,SoRCrossValidationScorer
 from .gs import GridSearch,StepsGrid
