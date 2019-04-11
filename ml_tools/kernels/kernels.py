@@ -52,7 +52,7 @@ class KernelPP(KernelBase):
     """
     def __init__(self,zeta,active_idx):
         self.zeta = zeta
-        self.active = active_idx
+        self.active_idx = active_idx
     def fit(self,X):   
         return self
     def get_params(self,deep=True):
@@ -75,7 +75,7 @@ class KernelPP(KernelBase):
             return Kmm,Kmn
         else: 
             Kmx = power(np.dot(X,Y[self.active_idx].T),self.zeta)
-            return Kxm
+            return Kmx
           
     def pack(self):
         state = dict(zeta=self.zeta,active=self.active_idx)
