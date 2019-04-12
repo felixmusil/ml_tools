@@ -15,7 +15,9 @@ class KRR(RegressorBase):
     
     def fit(self,kernel,y):
         '''Train the krr model with trainKernel and trainLabel.'''
-        sigma =  np.std(y)/np.sqrt(np.trace(kernel)/kernel.shape[0])/self.reg   
+        #sigma =  np.std(y)/np.sqrt(np.trace(kernel)/kernel.shape[0])/self.reg   
+        sigma =  1./np.sqrt(np.trace(kernel)/kernel.shape[0])/self.reg
+
         L = np.linalg.cholesky(kernel+np.eye(kernel.shape[0])*sigma**2+np.eye(kernel.shape[0])*self.jitter)
         z = solve_triangular(L,y,lower=True)
         self.alpha = solve_triangular(L.T,z,lower=False,overwrite_b=True).reshape((1,-1))
@@ -39,7 +41,8 @@ class KRR_PP(RegressorBase):
     
     def fit(self,kernelMM,kernelMN,y):
         '''Train the krr model with trainKernel and trainLabel.'''
-        sigma =  np.std(y)/np.sqrt(np.trace(kernelMM)/kernelMM.shape[0])/self.reg
+        #sigma =  np.std(y)/np.sqrt(np.trace(kernelMM)/kernelMM.shape[0])/self.reg
+        sigma =  1./np.sqrt(np.trace(kernelMM)/kernelMM.shape[0])/self.reg
         ym = np.dot(kernelMN,y)
         kernel = np.eye(kernelMM.shape[0])*sigma**2*kernelMM + np.dot(kernelMN,kernelMN.T)
         L = np.linalg.cholesky(kernel+np.eye(kernelMM.shape[0])*self.jitter)
