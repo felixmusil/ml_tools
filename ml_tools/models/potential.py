@@ -1,7 +1,8 @@
 from ase.calculators.calculator import Calculator,all_changes
 from copy import deepcopy
+from ..base import BaseIO
 
-class MLCalculator(Calculator):
+class MLCalculator(BaseIO,Calculator):
     """
     """
 
@@ -17,15 +18,15 @@ class MLCalculator(Calculator):
         Calculator.__init__(self, **kwargs)
 
         self.model = deepcopy(model)
-        self.model.representation.disable_pbar = True
-
 
     def calculate(self, atoms=None, properties=['energy'],
                   system_changes=all_changes):
         Calculator.calculate(self, atoms, properties, system_changes)
 
-        X = self.model.representation.transform([self.atoms])
-
+        X = [self.atoms]
+        for v in self.model.feature_transformations:
+            X = v.transform(X)
+        
         energy = self.model.predict(X,eval_gradient=False)
         forces = -self.model.predict(X,eval_gradient=True)
 

@@ -323,6 +323,9 @@ class SoRTrainer(TrainerBase):
             train_ids = test_ids
         if self.is_precomputed is False:
             self.precompute(y_train, X_train, X_pseudo, f_train, y_train_nograd, X_train_nograd)
+
+        if self.has_forces is True and len(lambdas) < 2:
+            raise RuntimeError('please provide the uncertainty associated with the forces')
         KNM,Y,KMM,Nr,Natoms = self.get_subset(train_ids)
 
         delta = np.std(Y[:Nr])
@@ -330,6 +333,7 @@ class SoRTrainer(TrainerBase):
         KNMp = KNM.copy()
         Yp = Y.copy()
         KMMp = KMM.copy()
+
         if test_ids is None:
             # lambdas[0] is provided per atom
             KNMp[:Nr] /=  lambdas[0] / delta * np.sqrt(Natoms)[:,None]

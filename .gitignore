@@ -7,3 +7,4 @@
 build*
 *-checkpoint.ipynb
 *.idx
+*md.*
