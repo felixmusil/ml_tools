@@ -31,11 +31,15 @@ class FullCovarianceTrainer(TrainerBase):
         self.X_train = None
         self.Natoms = None
 
-    def get_subset(self,ids=None):
+    def get_subset(self,ids=None,test_ids=None):
         if ids is None:
-            return self.Y, self.K, self.Nr
+            return self.K, self.Y, self.Nr
+        elif ids is not None and test_ids is None:
+            return self.K[np.ix_(ids,ids)], self.Y[ids], len(ids)
+        elif ids is not None and test_ids is not None:
+            return self.K[np.ix_(test_ids,ids)], self.Y[test_ids], len(test_ids)
         else:
-            return self.Y[ids],self.K[ids], len(ids)
+            raise RuntimeError()
 
     @return_deepcopy
     def get_params(self,deep=True):
@@ -141,34 +145,43 @@ class FullCovarianceTrainer(TrainerBase):
 
         self.is_precomputed = True
 
-    def fit(self, lambdas=[1e-2], jitter=1e-9, train_ids=None, y_train=None, X_train=None, f_train=None, y_train_nograd=None, X_train_nograd=None):
+    def prepare_kernel_and_targets(self,lambdas=[1e-2], jitter=1e-9, train_ids=None,test_ids=None, y_train=None, X_train=None, f_train=None, y_train_nograd=None, X_train_nograd=None):
         if self.is_precomputed is False:
             self.precompute(y_train, X_train, f_train, y_train_nograd, X_train_nograd)
 
-        if has_forces is True:
+        if self.has_forces is True:
             raise NotImplementedError()
-        Y,K,Nr =  self.get_subset(train_ids)
+        K,Y,Nr =  self.get_subset(train_ids,test_ids)
 
-        delta = np.std(Y[:Nr]) / np.mean(K.diagonal())
+        delta = np.std(Y[:Nr]) / np.mean(K.diagonal()[:Nr])
 
         K = K.copy()
         Y = Y.copy()
 
-        # jitter for numerical stability
-        K[np.diag_indices_from(K)[:Nr]] += lambdas[0]**2 / delta **2 + jitter
+        if test_ids is None:
+            # jitter for numerical stability
+            K[np.diag_indices_from(K[:Nr,:Nr])] += lambdas[0]**2 / delta **2 + jitter
 
-        if f_train is not None:
-            raise NotImplementedError()
-            K[np.diag_indices_from(K)[Nr:]] += lambdas[1]**2 / delta **2 + jitter
+            if f_train is not None:
+                raise NotImplementedError()
+                K[np.diag_indices_from(K[:Nr,:Nr])] += lambdas[1]**2 / delta **2 + jitter
+
+            # self.K = K
+            self.delta = delta
+
+        return K,Y
+
+    def fit(self, lambdas=[1e-2], jitter=1e-9, train_ids=None, y_train=None, X_train=None, f_train=None, y_train_nograd=None, X_train_nograd=None):
+
+        K,Y = self.prepare_kernel_and_targets(lambdas=lambdas,jitter=jitter,train_ids=train_ids,y_train=y_train,X_train=X_train,f_train=f_train,y_train_nograd=y_train_nograd,X_train_nograd=X_train_nograd)
 
         if self.model_name == 'krr':
             model_params = dict(kernel=self.kernel, X_train=self.X_train, feature_transformations=self.feature_transformations,has_global_targets=self.has_global_targets,self_contribution=self.self_contribution)
 
             model = KRR(**model_params)
 
-            model.fit(K,Y)
-            self.K = K
-            self.delta = delta
+
+        model.fit(K,Y)
 
         return model
 
@@ -192,12 +205,11 @@ class SoRTrainer(TrainerBase):
         self.X_pseudo = None
         self.Natoms = None
 
-    def get_subset(self,ids=None):
+    def get_subset(self,ids=None,test_ids=None):
         if ids is None:
-            return self.Y,self.KNM, self.KMM,self.Nr
+            return self.KNM,self.Y, self.KMM,self.Nr,self.Natoms
         else:
-            return self.Y[ids],self.KNM[ids], self.KMM, len(ids)
-
+            return self.KNM[ids],self.Y[ids], self.KMM, len(ids),self.Natoms[ids]
 
     @return_deepcopy
     def get_params(self,deep=True):
@@ -236,32 +248,32 @@ class SoRTrainer(TrainerBase):
 
     def precompute(self, y_train, X_train, X_pseudo, f_train=None, y_train_nograd=None, X_train_nograd=None):
         kernel = self.kernel
+        is_global_target = dict(is_global=self.has_global_targets)
 
         M = X_pseudo.get_nb_sample()
-        Nr1 = X_train.get_nb_sample()
+        Nr1 = X_train.get_nb_sample(**is_global_target)
         Nr2 = 0
         if X_train_nograd is not None:
-            Nr2 = X_train_nograd.get_nb_sample()
+            Nr2 = X_train_nograd.get_nb_sample(**is_global_target)
             y_train = np.concatenate([y_train,y_train_nograd])
 
         Nr = Nr1 + Nr2
         Natoms = np.zeros(Nr)
-        for iframe,sp in X_train.get_ids():
+        for iframe,sp in X_train.get_ids(**is_global_target):
             Natoms[iframe] += 1
         if X_train_nograd is not None:
-            for iframe,sp in X_train_nograd.get_ids():
+            for iframe,sp in X_train_nograd.get_ids(**is_global_target):
                 Natoms[Nr1+iframe] += 1
 
         if self.self_contribution is None:
             self.self_contribution = self.make_self_contribution(y_train,X_train,X_train_nograd,Natoms)
 
-
         Y0 = np.zeros(Nr)
 
-        for iframe,sp in X_train.get_ids():
+        for iframe,sp in X_train.get_ids(**is_global_target):
             Y0[iframe] += self.self_contribution[sp]
         if X_train_nograd is not None:
-            for iframe,sp in X_train_nograd.get_ids():
+            for iframe,sp in X_train_nograd.get_ids(**is_global_target):
                 Y0[Nr1+iframe] += self.self_contribution[sp]
 
         if f_train is None:
@@ -306,34 +318,47 @@ class SoRTrainer(TrainerBase):
 
         self.is_precomputed = True
 
-    def fit(self, lambdas, jitter=1e-8, train_ids=None, y_train=None, X_train=None, X_pseudo=None, f_train=None, y_train_nograd=None, X_train_nograd=None, **model_params):
+    def prepare_kernel_and_targets(self,lambdas, jitter=1e-8, train_ids=None, test_ids=None,y_train=None, X_train=None, X_pseudo=None, f_train=None, y_train_nograd=None, X_train_nograd=None):
+        if test_ids is not None:
+            train_ids = test_ids
         if self.is_precomputed is False:
             self.precompute(y_train, X_train, X_pseudo, f_train, y_train_nograd, X_train_nograd)
-        Y,KNM,KMM,Nr = self.get_subset(train_ids)
+        KNM,Y,KMM,Nr,Natoms = self.get_subset(train_ids)
 
         delta = np.std(Y[:Nr])
 
         KNMp = KNM.copy()
         Yp = Y.copy()
         KMMp = KMM.copy()
-        # lambdas[0] is provided per atom
-        KNMp[:Nr] /=  lambdas[0] / delta * np.sqrt(self.Natoms)[:,None]
-        Yp[:Nr] /= lambdas[0] / delta * np.sqrt(self.Natoms)
-        # jitter for numerical stability
-        KMMp[np.diag_indices_from(KMMp)] += jitter
-        if self.has_forces is True:
-          KNMp[Nr:] /= lambdas[1] / delta
-          Yp[Nr:] /= lambdas[1] / delta
+        if test_ids is None:
+            # lambdas[0] is provided per atom
+            KNMp[:Nr] /=  lambdas[0] / delta * np.sqrt(Natoms)[:,None]
+            Yp[:Nr] /= lambdas[0] / delta * np.sqrt(Natoms)
+            # jitter for numerical stability
+            KMMp[np.diag_indices_from(KMMp)] += jitter
+            if self.has_forces is True:
+                KNMp[Nr:] /= lambdas[1] / delta
+                Yp[Nr:] /= lambdas[1] / delta
+            Y = np.dot(KNMp.T,Yp)
+
+            K = KMMp + np.dot(KNMp.T,KNMp)
+        else:
+            K = KNMp
+
+        self.K = K
+        self.delta = delta
+
+        return K,Y
+
+    def fit(self, lambdas, jitter=1e-8, train_ids=None, y_train=None, X_train=None, X_pseudo=None, f_train=None, y_train_nograd=None, X_train_nograd=None):
+        K,Y = self.prepare_kernel_and_targets(lambdas=lambdas,jitter=jitter,train_ids=train_ids,y_train=y_train,X_train=X_train,X_pseudo=X_pseudo,f_train=f_train,y_train_nograd=y_train_nograd,X_train_nograd=X_train_nograd)
 
         if self.model_name == 'krr':
             model_params = dict(kernel=self.kernel, X_train=self.X_pseudo, feature_transformations=self.feature_transformations,has_global_targets=self.has_global_targets,self_contribution=self.self_contribution)
 
             model = KRR(**model_params)
-            K = KMMp + np.dot(KNMp.T,KNMp)
-            Y = np.dot(KNMp.T,Yp)
-            model.fit(K,Y)
-            self.K = K
-            self.delta = delta
+
+        model.fit(K,Y)
 
         return model
 
@@ -375,15 +400,11 @@ class CommiteeSoRTrainer(SoRTrainer):
             splitter = ShuffleSplit(n_splits=self.n_models,
                                 train_size=train_size,
                                 random_state=self.seed)
+
         elif self.sampling_method == '2-fold':
             splitter = KFold(n_splits=2,shuffle=True,random_state=self.seed)
 
         if self.model_name == 'krr':
-            if self.self_contribution is None:
-                aa = self.Y0
-            else:
-                aa = self.self_contribution
-
             model = CommiteeKRR(self.jitter, self.kernel, self.X_pseudo, self.representation,self_contribution=aa)
 
             k = self.prediction_repeat_threshold

@@ -71,7 +71,13 @@ class RawSoapInternal(AtomicDescriptorBase):
         self.atomic_types = [[]]*len(frames)
         for iframe, frame in enumerate(frames):
             numbers = frame.get_atomic_numbers()
-            self.atomic_types[iframe] = np.setdiff1d(numbers,nocenters)
+            if len(nocenters) == 0:
+                self.atomic_types[iframe] = numbers
+            else:
+                mask = np.ones(len(numbers),dtype=bool)
+                for sp in nocenters:
+                    mask[numbers == sp] = 0
+                self.atomic_types[iframe] = numbers[mask]
 
         Nfeature = self.get_Nsoap(global_species,nmax,lmax)
 
@@ -96,7 +102,6 @@ class RawSoapInternal(AtomicDescriptorBase):
         desc_mapping = np.zeros((rep.shape[0],1))
 
         species = self.atomic_types[iframe]
-
         features.insert(
                 self.slices[iframe], rep, species, desc_mapping
         )

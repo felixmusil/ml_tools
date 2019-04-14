@@ -21,9 +21,9 @@ def make_kernel(name, **kwargs):
         kernel = KernelPower(kernel_type='power_gap', **kwargs)
     elif name == registered_kernel[3]:
         kernel = KernelSum(kernel_type = 'power_gap', **kwargs)
-
+    else:
+        raise RuntimeError('The name of the kernel {} does not match known kernel: {}'.format(name,registered_kernel))
     return kernel
-
 
 
 class KernelPower(KernelBase):

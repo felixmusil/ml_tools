@@ -29,7 +29,7 @@ class KRR(RegressorBase):
 
     def _preprocess_input(self,X,eval_gradient):
         Natoms = None
-        Y0 = None
+        Y0 = 0.
 
         if is_structures(X) is True:
             for v in self.feature_transformations:
@@ -69,8 +69,9 @@ class KRR(RegressorBase):
     def predict(self,X,eval_gradient=False):
         kernel,Natoms,Y0 = self._preprocess_input(X,eval_gradient)
         alpha = self.alpha
+
         if eval_gradient is False:
-            return Y0 + np.dot(kernel,alpha).reshape((-1))
+            return Y0 + np.dot(kernel,alpha).reshape((-1)) # * Natoms
         else:
             return np.dot(kernel,alpha).reshape((-1,3))
 

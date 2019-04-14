@@ -31,6 +31,7 @@ def sum_power_no_species(out, zeta, desc1, ids1, desc2, ids2):
             for it in range(n):
                 for jt in range(m):
                     out[iframe1,iframe2] += power_kernel(d1[it],d2[jt],zeta)
+            out[iframe1,iframe2] /= n*m
 
 @jit(nopython=True,nogil=True,parallel=True)
 def sum_power_no_species_self(out, zeta, desc1, ids1):
@@ -44,7 +45,7 @@ def sum_power_no_species_self(out, zeta, desc1, ids1):
         for it in range(n):
             for jt in range(n):
                 out[iframe1,iframe1] += power_kernel(d1[it],d1[jt],zeta)
-
+        out[iframe1,iframe1] /= n**2
         for iframe2 in range(iframe1+1,N):
             st2,nd2 = Nelem[iframe2],Nelem[iframe2+1]
             d2 = desc1[st2:nd2]
@@ -55,6 +56,8 @@ def sum_power_no_species_self(out, zeta, desc1, ids1):
                     tmp = power_kernel(d1[it],d2[jt],zeta)
                     out[iframe1,iframe2] += tmp
                     out[iframe2,iframe1] += tmp
+            out[iframe1,iframe2] /= n*m
+            out[iframe2,iframe1] /= n*m
 
 @njit(parallel=True)
 def derivative_sum_power_no_species(out, zeta, desc1, ids1, grad1, gids1, desc2, ids2):

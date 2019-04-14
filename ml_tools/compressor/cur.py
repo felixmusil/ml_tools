@@ -19,7 +19,7 @@ class CURFilter(BaseEstimator,TransformerMixin):
         params = dict(Nselect=self.Nselect,act_on=self.act_on,is_deterministic=self.is_deterministic,
                          seed=self.seed)
         return params
-        
+
     @return_deepcopy
     def dumps(self):
         state = {}
@@ -39,9 +39,8 @@ class CURFilter(BaseEstimator,TransformerMixin):
         if self.act_on in ['sample per specie']:
             self.selected_ids = {}
             x = {}
-            if isinstance(X,dict):
-                x[1] = X['feature_matrix']
-            elif isinstance(X,FeatureBase):
+            
+            if isinstance(X,FeatureBase):
                 usp = np.unique(X.get_species())
                 for sp in usp:
                     x[sp] = X.get_data(specie=sp)

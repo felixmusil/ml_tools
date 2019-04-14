@@ -51,12 +51,6 @@ class FPSFilter(CompressorBase):
         if is_feature_selection is True:
             X = X.T
 
-
-
-
-
-
-
         if isinstance(X,FeatureBase):
             Nselect = X.get_nb_sample(is_global=self.is_global)
         else:

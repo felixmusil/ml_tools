@@ -122,7 +122,13 @@ class RawSoapQUIP(AtomicDescriptorBase):
         self.atomic_types = [[]]*len(frames)
         for iframe, frame in enumerate(frames):
             numbers = frame.get_atomic_numbers()
-            self.atomic_types[iframe] = numbers
+            if len(nocenters) == 0:
+                self.atomic_types[iframe] = numbers
+            else:
+                mask = np.ones(len(numbers),dtype=bool)
+                for sp in nocenters:
+                    mask[numbers == sp] = 0
+                self.atomic_types[iframe] = numbers[mask]
 
 
         Nfeature = self.get_Nsoap(global_species,soap_params['nmax'],
