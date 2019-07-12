@@ -145,12 +145,13 @@ class BaseIO(object):
     def from_file(self,fn):
         from .utils import  load_json
         fn = os.path.abspath(fn)
+        path = os.path.dirname(fn)
         filename , file_extension = os.path.splitext(fn)
         if file_extension == '.json':
             data = load_json(fn)
             version = data['version']
             if is_valid_object_dict[version](data):
-                self._load_npy(data)
+                self._load_npy(data, path)
                 return self.from_dict(data)
             else:
                 raise RuntimeError('The file: {}; does not contain a valid dictionary representation of an object.'.format(fn))
@@ -176,12 +177,12 @@ class BaseIO(object):
             elif is_npy(v) is True:
                 data[k] = ['npy',v.tolist()]
 
-    def _load_npy(self,data):
+    def _load_npy(self,data, path):
         for k,v in data.items():
             if isinstance(v,dict):
-                self._load_npy(v)
+                self._load_npy(v, path)
             elif is_npy_filename(v) is True:
-                data[k] = np.load(v,mmap_mode='r')
+                data[k] = np.load(os.path.join(path, v),mmap_mode='r')
             elif isinstance(v,list):
                 if len(v) == 2:
                     if 'npy' == v[0]:
