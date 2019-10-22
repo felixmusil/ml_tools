@@ -1,4 +1,9 @@
 from __future__ import print_function
+from __future__ import division
+from builtins import map
+from builtins import zip
+from builtins import range
+from past.utils import old_div
 import argparse
 import time,sys
 
@@ -63,8 +68,8 @@ def sor_loss(x_opt,X,y,cv,jitter,disable_pbar=True,leave=False,return_score=Fals
     for train,test in tqdm_cs(cv.split(kMN.T),total=cv.n_splits,disable=disable_pbar,leave=False):
         # prepare SoR kernel
         kMN_train =  kMN[:,train]
-        kernel_train = kMM + np.dot(kMN_train,kMN_train.T)/Lambda**2 + np.diag(np.ones(Mactive))*jitter
-        y_train = np.dot(kMN_train,y[train])/Lambda**2
+        kernel_train = kMM + old_div(np.dot(kMN_train,kMN_train.T),Lambda**2) + np.diag(np.ones(Mactive))*jitter
+        y_train = old_div(np.dot(kMN_train,y[train]),Lambda**2)
 
         # train the KRR model
         alpha = np.linalg.solve(kernel_train, y_train).flatten()
@@ -108,8 +113,8 @@ def soap_cov_loss(x_opt,rawsoaps,y,cv,jitter,disable_pbar=True,leave=False,compr
     for train,test in tqdm_cs(cv.split(rawsoaps),total=cv.n_splits,disable=disable_pbar,leave=False):
         # prepare SoR kernel
         kMN_train =  kMN[:,train]
-        kernel_train = (kMM + np.dot(kMN_train,kMN_train.T)/Lambda**2) + np.diag(np.ones(Mactive))*jitter
-        y_train = np.dot(kMN_train,y[train])/Lambda**2
+        kernel_train = (kMM + old_div(np.dot(kMN_train,kMN_train.T),Lambda**2)) + np.diag(np.ones(Mactive))*jitter
+        y_train = old_div(np.dot(kMN_train,y[train]),Lambda**2)
 
         # train the KRR model
         alpha = np.linalg.solve(kernel_train, y_train).flatten()
@@ -160,8 +165,8 @@ def sor_fj_loss(x_opt,data,y,cv,jitter,disable_pbar=True,leave=False,kernel=None
     for train,test in tqdm_cs(cv.split(y.reshape((-1,1))),total=cv.n_splits,disable=disable_pbar,leave=False):
         # prepare SoR kernel
         kMN_train =  kMN[:,train]
-        kernel_train = (kMM + np.dot(kMN_train,kMN_train.T)/Lambda**2) + np.diag(np.ones(Mactive))*jitter
-        y_train = np.dot(kMN_train,y[train])/Lambda**2
+        kernel_train = (kMM + old_div(np.dot(kMN_train,kMN_train.T),Lambda**2)) + np.diag(np.ones(Mactive))*jitter
+        y_train = old_div(np.dot(kMN_train,y[train]),Lambda**2)
 
         # train the KRR model
         alpha = np.linalg.solve(kernel_train, y_train).flatten()
@@ -195,8 +200,8 @@ def LL_sor_loss(x_opt,X,y,cv,jitter,disable_pbar=True,leave=False):
     kMN = X[1]
     Mactive,Nsample = kMN.shape
 
-    kernel_ = kMM + np.dot(kMN,kMN.T)/Lambda**2 + np.diag(np.ones(Mactive))*jitter
-    y_ = np.dot(kMN,y)/Lambda**2
+    kernel_ = kMM + old_div(np.dot(kMN,kMN.T),Lambda**2) + np.diag(np.ones(Mactive))*jitter
+    y_ = old_div(np.dot(kMN,y),Lambda**2)
 
     # Get log likelihood score
     L = np.linalg.cholesky(kernel_)
@@ -235,7 +240,7 @@ if __name__ == '__main__':
     y = np.load(prop_fn)
 
 
-    x_init = map(float, in_args.Xinit.split(','))
+    x_init = list(map(float, in_args.Xinit.split(',')))
 
     Nfps = in_args.Nfps
     Nfold = in_args.Nfold

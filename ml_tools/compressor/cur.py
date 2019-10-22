@@ -31,7 +31,7 @@ class CURFilter(BaseEstimator,TransformerMixin):
 
     def loads(self, data):
         if isinstance(data['selected_ids'],dict):
-            self.selected_ids = {int(k):v for k,v in data['selected_ids'].items()}
+            self.selected_ids = {int(k):v for k,v in list(data['selected_ids'].items())}
         else:
             self.selected_ids = data['selected_ids']
         self.trained = data['trained']

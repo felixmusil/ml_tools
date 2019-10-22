@@ -1,3 +1,4 @@
+from builtins import range
 from ..base import TrainerBase,RegressorBase,FeatureBase
 from ..base import np,sp,is_npy
 from ..utils import return_deepcopy,is_structures

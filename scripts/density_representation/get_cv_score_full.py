@@ -1,3 +1,5 @@
+from builtins import map
+from builtins import range
 import argparse
 import time
 
@@ -36,7 +38,7 @@ if __name__ == '__main__':
     prop_fn = args.prop
     y_train = np.load(prop_fn)
 
-    deltas = map(float, args.deltas.split(','))
+    deltas = list(map(float, args.deltas.split(',')))
     deltas = sorted(list(set(deltas)))
 
     kernel_fn = args.kernel

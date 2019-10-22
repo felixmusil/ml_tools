@@ -1,3 +1,6 @@
+from __future__ import division
+from builtins import str
+from past.utils import old_div
 import os
 from ..base import np,sp
 from scipy.stats import spearmanr
@@ -36,7 +39,7 @@ def get_r2(y_pred,y_true):
     numerator = (weight * (y_true - y_pred) ** 2).sum(axis=0,dtype=np.float64)
     denominator = (weight * (y_true - np.average(
         y_true, axis=0, weights=sample_weight)) ** 2).sum(axis=0,dtype=np.float64)
-    output_scores = 1 - (numerator / denominator)
+    output_scores = 1 - (numerator/ denominator)
     return np.mean(output_scores)
 
 def get_mae(ypred,y):
@@ -59,7 +62,7 @@ score_func = dict(
 
 def get_score(ypred,y):
     scores = {}
-    for k,func in score_func.iteritems():
+    for k,func in score_func.items():
         scores[k] = func(ypred,y)
     return scores
 
@@ -97,7 +100,7 @@ def qp2ase(qpatoms):
     pbc = qpatoms.get_pbc()
     atoms = aseAtoms(numbers=numbers, cell=cell, positions=positions, pbc=pbc)
 
-    for key, item in qpatoms.arrays.iteritems():
+    for key, item in qpatoms.arrays.items():
         if key in ['positions', 'numbers', 'species', 'map_shift', 'n_neighb']:
             continue
         atoms.set_array(key, item)

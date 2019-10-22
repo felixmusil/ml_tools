@@ -1,3 +1,6 @@
+from __future__ import division
+from builtins import range
+from past.utils import old_div
 from .KRR import KRR,CommiteeKRR
 from ..kernels.kernels import make_kernel
 from ..base import np,TrainerBase
@@ -160,11 +163,11 @@ class FullCovarianceTrainer(TrainerBase):
 
         if test_ids is None:
             # jitter for numerical stability
-            K[np.diag_indices_from(K[:Nr,:Nr])] += lambdas[0]**2 / delta **2 + jitter
+            K[np.diag_indices_from(K[:Nr,:Nr])] += lambdas[0]**2/ delta **2 + jitter
 
             if f_train is not None:
                 raise NotImplementedError()
-                K[np.diag_indices_from(K[:Nr,:Nr])] += lambdas[1]**2 / delta **2 + jitter
+                K[np.diag_indices_from(K[:Nr,:Nr])] += lambdas[1]**2/ delta **2 + jitter
 
             # self.K = K
             self.delta = delta
@@ -336,13 +339,13 @@ class SoRTrainer(TrainerBase):
 
         if test_ids is None:
             # lambdas[0] is provided per atom
-            KNMp[:Nr] /=  lambdas[0] / delta * np.sqrt(Natoms)[:,None]
-            Yp[:Nr] /= lambdas[0] / delta * np.sqrt(Natoms)
+            KNMp[:Nr] /=  lambdas[0]/ delta * np.sqrt(Natoms)[:,None]
+            Yp[:Nr] /= lambdas[0]/ delta * np.sqrt(Natoms)
             # jitter for numerical stability
             KMMp[np.diag_indices_from(KMMp)] += jitter
             if self.has_forces is True:
-                KNMp[Nr:] /= lambdas[1] / delta
-                Yp[Nr:] /= lambdas[1] / delta
+                KNMp[Nr:] /= lambdas[1]/ delta
+                Yp[Nr:] /= lambdas[1]/ delta
             Y = np.dot(KNMp.T,Yp)
 
             K = KMMp + np.dot(KNMp.T,KNMp)

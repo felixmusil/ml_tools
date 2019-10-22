@@ -1,3 +1,8 @@
+from future import standard_library
+standard_library.install_aliases()
+from builtins import zip
+from builtins import str
+from builtins import map
 import ase
 import os
 from os import listdir
@@ -10,8 +15,8 @@ from string import Template
 from ..base import np,sp
 from copy import copy,deepcopy
 from glob import glob
-import cPickle as pck
-import commands
+import pickle as pck
+import subprocess
 import sh,re
 
 
@@ -34,7 +39,7 @@ def extract_shift_contribution(contribution_name,fn):
         ee = extract_shift_tensor(aa)
     elif contribution_name in ['bare','para','dia','para_oo','para_lq','Total']:
         aa = sh.grep('-A 3',contribution_name+' sigma:',fn).split('--\n')
-        ee = map(extract_shift_tensor,aa)
+        ee = list(map(extract_shift_tensor,aa))
     return ee
 
 def get_isotropic(mat):
@@ -73,7 +78,7 @@ def get_shift_maroscopic(fn,is_scalar=True):
 def get_shift_total(fn,is_scalar=True):
     aa = extract_shift_contribution('Total',fn)
     if is_scalar is True:
-        total = map(get_isotropic,aa)
+        total = list(map(get_isotropic,aa))
         out = np.round(total,decimals=2)
         return out
     else:

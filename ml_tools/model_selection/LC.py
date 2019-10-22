@@ -1,3 +1,4 @@
+from builtins import range
 from ..split import LCSplit,ShuffleSplit
 from ..utils import tqdm_cs,return_deepcopy,score_func
 from ..base import np,sp,BaseEstimator
@@ -22,7 +23,7 @@ class LearningCurve(BaseEstimator):
             K_test,y_true = self.trainer.prepare_kernel_and_targets(train_ids=train,test_ids=test,**self.model_params)
             y_pred = model.predict(K_test)
             self.predictions.append(dict(y_ref=y_true,y_pred=y_pred))
-            for k,func in self.score_func.iteritems():
+            for k,func in self.score_func.items():
                 self.scores[k].append(func(y_true,y_pred))
 
         strides = np.cumsum([0]+list(self.args['n_repeats']))

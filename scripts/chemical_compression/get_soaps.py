@@ -1,4 +1,8 @@
+from __future__ import division
 
+from builtins import str
+from builtins import range
+from past.utils import old_div
 import numpy as np
 import quippy as qp
 import re
@@ -17,19 +21,19 @@ def order_soap(soap, species, nspecies, nab, subspecies, nsubspecies, nsubab, nm
     #translate the fingerprints from QUIP
     counter = 0
     p = np.zeros((nsubspecies, nsubspecies, nmax, nmax, lmax + 1))
-    rs_index = [(i%nmax, (i - i%nmax)/nmax) for i in xrange(nmax*nsubspecies)]
-    for i in xrange(nmax*nsubspecies):
-        for j in xrange(i + 1):
+    rs_index = [(i%nmax, old_div((i - i%nmax),nmax)) for i in range(nmax*nsubspecies)]
+    for i in range(nmax*nsubspecies):
+        for j in range(i + 1):
             if i != j: mult = np.sqrt(0.5)
             else: mult = 1.0
-            for k in xrange(lmax + 1):
+            for k in range(lmax + 1):
                 n1, s1 = rs_index[i]
                 n2, s2 = rs_index[j]
                 p[s1, s2, n1, n2, k] = soap[counter]*mult
                 if s1 == s2: p[s1, s2, n2, n1, k] = soap[counter]*mult
                 counter += 1
-    for s1 in xrange(nsubspecies):
-        for s2 in xrange(s1):
+    for s1 in range(nsubspecies):
+        for s2 in range(s1):
             p[s2, s1] = p[s1, s2].transpose((1, 0, 2))
 
     p = p.reshape((nsubspecies, nsubspecies, nn))
@@ -49,13 +53,13 @@ def get_soaps(soapstr, rc, species, nspecies, nmax, lmax, nn, nab):
     def inner(frames):
         soaps_list = []
         n = len(frames)
-        for i in xrange(n):
+        for i in range(n):
             frame = frames[i]
             frame.set_cutoff(rc)
             frame.calc_connect()
             subspecies = sorted(list(set([atom.number for atom in frame if atom.number in species])))
             nsubspecies = len(subspecies)
-            nsubab = nsubspecies*(nsubspecies + 1)/2
+            nsubab = old_div(nsubspecies*(nsubspecies + 1),2)
             speciesstr = '{'+re.sub('[\[,\]]', '', str(subspecies))+'}'
             soapstr2 = soapstr.substitute(nspecies=nsubspecies, ncentres=nsubspecies, \
                                           species=speciesstr, centres=speciesstr)
@@ -63,7 +67,7 @@ def get_soaps(soapstr, rc, species, nspecies, nmax, lmax, nn, nab):
             soap = desc.calc(frame, grad=False)['descriptor']
             nenv = soap.shape[0]
             soaps = np.zeros((nenv, nspecies**2, nn))
-            for j in xrange(nenv):
+            for j in range(nenv):
                 soaps[j] = order_soap(soap[j], species, nspecies, nab, subspecies, \
                                       nsubspecies, nsubab, nmax, lmax, nn)
             soaps_list.append(sp.csc_matrix(soaps.mean(axis=0)))
@@ -87,7 +91,7 @@ def main(suffix, fxyz, rc, species, nmax, lmax, awidth, nframes, cutoff_dexp, cu
     if nframes == 0: nframes = None
     nspecies = len(species)
     nn = nmax**2*(lmax + 1)
-    nab = nspecies*(nspecies+1)/2
+    nab = old_div(nspecies*(nspecies+1),2)
     cutoff_dexp = int(cutoff_dexp)
     cutoff_scale = float(cutoff_scale)
 
@@ -107,7 +111,7 @@ def main(suffix, fxyz, rc, species, nmax, lmax, awidth, nframes, cutoff_dexp, cu
     soaps_list = gsoaps(frames)
 
     p = {}
-    for i in xrange(nframes):
+    for i in range(nframes):
         p[i] = soaps_list[i]
     
     f = open(suffix+'.pckl', 'wb')

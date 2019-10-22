@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 
+from builtins import range
 from ..base import np,sp
 from ..base import CompressorBase,FeatureBase
 from ..utils import tqdm_cs,return_deepcopy
@@ -132,7 +133,7 @@ def do_fps_feature(x=None,n=0, d=0,init=0,disable_pbar=True,kernel=None):
     dl = n2 + n2[iy[0]] - 2* np.squeeze(kernel.transform(x, x[iy[0]]))
     lmin = np.zeros(d)
 
-    for i in tqdm_cs(range(1,d),leave=False,desc='fps',disable=disable_pbar):
+    for i in tqdm_cs(list(range(1,d)),leave=False,desc='fps',disable=disable_pbar):
         iy[i] = np.argmax(dl)
         lmin[i-1] = dl[iy[i]]
         nd = n2 + n2[iy[i]] - 2* np.squeeze(kernel.transform(x,x[iy[i]]))
@@ -148,7 +149,7 @@ def do_fps_kernel(kernel, d=0,init=0,disable_pbar=True):
     iy[0] = init
     dl = n2 + n2[iy[0]] - 2* kernel[:,iy[0]]
     lmin = np.zeros(d)
-    for i in tqdm_cs(range(1,d),leave=False,desc='fps',disable=disable_pbar):
+    for i in tqdm_cs(list(range(1,d)),leave=False,desc='fps',disable=disable_pbar):
         iy[i] = np.argmax(dl)
         lmin[i-1] = dl[iy[i]]
         nd = n2 + n2[iy[i]] - 2*kernel[:,iy[i]]

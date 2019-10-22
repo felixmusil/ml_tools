@@ -1,3 +1,5 @@
+from builtins import zip
+from builtins import range
 import numpy as np
 from ..base import FeatureBase, is_npy
 from ..utils import return_deepcopy

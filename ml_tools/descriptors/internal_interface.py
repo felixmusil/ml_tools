@@ -1,3 +1,4 @@
+from builtins import range
 from .dvr_radial_basis import get_descriptor,density
 from ..base import AtomicDescriptorBase
 from ..base import np,sp
@@ -133,7 +134,7 @@ class RawSoapInternal(AtomicDescriptorBase):
         else:
             soaps = self.init_data(frames)
 
-        for iframe in tqdm_cs(range(Nframe),desc='RawSoap',leave=self.leave,disable=self.disable_pbar):
+        for iframe in tqdm_cs(list(range(Nframe)),desc='RawSoap',leave=self.leave,disable=self.disable_pbar):
             soap = get_descriptor(centers,frames[iframe], global_species, nmax, lmax, rc, self.gdens)
             # soap = np.vstack(soap)
 

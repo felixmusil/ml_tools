@@ -1,5 +1,9 @@
 # -*- coding: utf-8 -*-
 from __future__ import print_function
+from __future__ import division
+from builtins import zip
+from builtins import range
+from past.utils import old_div
 import argparse
 import time
 
@@ -208,8 +212,8 @@ if __name__ == '__main__':
             if is_SoR is True:
                 Mactive = kMN.shape[0]
                 kMN_train =  kMN[:,train]
-                k_train = kMM + np.dot(kMN_train,kMN_train.T)/Lambda**2 + np.diag(np.ones(Mactive))*jitter
-                y_train = np.dot(kMN_train,y[train])/Lambda**2
+                k_train = kMM + old_div(np.dot(kMN_train,kMN_train.T),Lambda**2) + np.diag(np.ones(Mactive))*jitter
+                y_train = old_div(np.dot(kMN_train,y[train]),Lambda**2)
                 k_test = kMN[:,test]
             else:
                 Ntrain = len(train)

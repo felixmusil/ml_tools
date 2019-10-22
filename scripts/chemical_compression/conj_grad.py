@@ -1,5 +1,8 @@
 ''' conjugate gradient code to solve (A + lam) x = b, where A = phi phi.T '''
+from __future__ import division
 
+from builtins import range
+from past.utils import old_div
 import numpy as np
 
 np.seterr(all='raise')
@@ -15,7 +18,7 @@ def cg(phi, b, x0, lam=1.0, maxiter=1000, tol=1.0e-25):
     alpha = np.zeros((2))
     beta = np.zeros((2))
     norm = np.zeros((2))
-    
+
     x[0] = x0
     ax0 = np.dot(phi, np.dot(phi.T, x[0]))
     ax0 += lam*x[0]
@@ -23,7 +26,7 @@ def cg(phi, b, x0, lam=1.0, maxiter=1000, tol=1.0e-25):
     p[0] = r[0]
     norm[0] = np.linalg.norm(r[0])**2
 
-    for i in xrange(maxiter):
+    for i in range(maxiter):
 
         lab1 = i%2
         lab2 = (i+1)%2
@@ -33,7 +36,7 @@ def cg(phi, b, x0, lam=1.0, maxiter=1000, tol=1.0e-25):
         try:
             alpha[lab1] /= np.dot(pkphi, pkphi) + lam*np.dot(p[lab1], p[lab1])
             x[lab2] = x[lab1] + alpha[lab1]*p[lab1]
-            r[lab2] = r[lab1] - alpha[lab1]*np.dot(phi, np.dot(phi.T, p[lab1])) 
+            r[lab2] = r[lab1] - alpha[lab1]*np.dot(phi, np.dot(phi.T, p[lab1]))
             r[lab2] -= alpha[lab1]*lam*p[lab1]
             norm[lab2] = np.linalg.norm(r[lab2])**2
             beta[lab1] = norm[lab2]/norm[lab1]

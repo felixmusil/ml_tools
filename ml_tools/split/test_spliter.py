@@ -1,3 +1,4 @@
+from builtins import zip
 from .spliter import EnvironmentalKFold,EnvironmentalSplit,NormalSplit,LCSplit
 
 import unittest

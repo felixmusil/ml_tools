@@ -1,5 +1,9 @@
 from __future__ import print_function
+from __future__ import division
 
+from builtins import str
+from builtins import range
+from past.utils import old_div
 import argparse
 import sys
 import pickle
@@ -30,7 +34,7 @@ def pred(w, u, p, n):
     uwut = np.matmul(np.matmul(u, w.transpose((0, 2, 1))), u.T)
     uwut = uwut.transpose((1, 2, 0))
     pred = np.zeros(n)
-    for i in xrange(n):
+    for i in range(n):
         pred[i] = np.dot(p(i).ravel(), uwut.ravel())
 
     return pred
@@ -71,7 +75,7 @@ def grad1(w, p, y, nn, nspecies, nalch, ntrain, sigmaw):
         pbar = np.zeros((ntrain, nalch**2, nn))
         ukron = np.kron(u_unrav.T, u_unrav.T)
         diff = y - pred(warray, u_unrav, p, len(y))
-        for i in xrange(ntrain):
+        for i in range(ntrain):
             pi = p(i).reshape((nspecies, nspecies, nn)).transpose((1, 0, 2))
             pi = pi.reshape((nspecies**2, nn))
             pbar[i] = -np.dot(ukron, pi)*diff[i]
@@ -99,7 +103,7 @@ def grad2(w, p, y, nn, nspecies, nalch, sigmau):
         wu2 = np.dot(warray, u_unrav.T)
         wu1 = wu1.transpose((1, 0, 2)).reshape((nalch, nn*nspecies))
         wu2 = wu2.transpose((1, 0, 2)).reshape((nalch, nn*nspecies))
-        for i in xrange(ntrain):
+        for i in range(ntrain):
             pi1 = p(i).reshape((nspecies, nspecies, nn)).transpose((2, 1, 0))
             pi2 = pi1.transpose((0, 2, 1))
             pi1 = pi1.reshape((nn*nspecies, nspecies))
@@ -120,7 +124,7 @@ def grad11(p, nn, nspecies, nalch, ntrain, sigmaw):
         u_unrav = u.reshape((nspecies, -1))
         pbar = np.zeros((ntrain, nalch**2, nn))
         ukron = np.kron(u_unrav.T, u_unrav.T)
-        for i in xrange(ntrain):
+        for i in range(ntrain):
             pi = p(i).reshape((nspecies, nspecies, nn)).transpose((1, 0, 2))
             pi = pi.reshape((nspecies**2, nn))
             pbar[i] = np.dot(ukron, pi)
@@ -149,7 +153,7 @@ def grad12(w, p, y, nn, nspecies, nalch):
         wu2 = np.dot(warray, u_unrav.T)
         wu1 = wu1.transpose((1, 0, 2)).reshape((nalch, nn*nspecies))
         wu2 = wu2.transpose((1, 0, 2)).reshape((nalch, nn*nspecies))
-        for l in xrange(ntrain):
+        for l in range(ntrain):
             pl1 = p(l).reshape((nspecies, nspecies, nn)).transpose((2, 1, 0))
             pl2 = pl1.transpose((0, 2, 1))
             vec0 = np.matmul(ukron, pl1.transpose((1, 2, 0)).reshape((nspecies**2, nn)))
@@ -160,8 +164,8 @@ def grad12(w, p, y, nn, nspecies, nalch):
             grad12 += np.multiply.outer(vec0, grad12a)
             plu1 = np.matmul(pl1, u_unrav)*diff[l]
             plu2 = np.matmul(pl2, u_unrav)*diff[l]
-            for i in xrange(nalch):
-                for j in xrange(nalch):
+            for i in range(nalch):
+                for j in range(nalch):
                     grad12[:, i, j, :, j] -= plu2[:, :, i] 
                     grad12[:, i, j, :, i] -= plu1[:, :, j] 
         grad12 = grad12.reshape(nn*nalch**2, nspecies*nalch)
@@ -211,7 +215,7 @@ def wfun(p, y, nn, nspecies, nalch, ntrain, sigmaw):
         u_unrav = u.reshape((nspecies, -1))
         pbar = np.zeros((ntrain, nalch**2, nn))
         ukron = np.kron(u_unrav.T, u_unrav.T)
-        for i in xrange(ntrain):
+        for i in range(ntrain):
             pi = p(i).reshape((nspecies, nspecies, nn)).transpose((1, 0, 2))
             pi = pi.reshape((nspecies**2, nn))
             pbar[i] = np.dot(ukron, pi)
@@ -309,17 +313,17 @@ def prepare_u(fu, species, nn, nspecies, nalch):
 
         enevs = np.zeros((nspecies))
         vdw = np.zeros((nspecies))
-        for i in xrange(nspecies):
+        for i in range(nspecies):
             enevs[i] = enev_dict[species[i]] 
             vdw[i] = vdw_dict[species[i]] 
 
         kappa = np.zeros((nspecies, nspecies))
 	s1 = 0.5
 	s2 = 0.5
-        for i in xrange(nspecies):
-            for j in xrange(i, nspecies):
-                kappa[i, j] = np.exp(-0.5*(enevs[i] - enevs[j])**2/s1**2)
-                kappa[i, j] *= np.exp(-0.5*(vdw[i] - vdw[j])**2/s2**2)
+        for i in range(nspecies):
+            for j in range(i, nspecies):
+                kappa[i, j] = np.exp(old_div(-0.5*(enevs[i] - enevs[j])**2,s1**2))
+                kappa[i, j] *= np.exp(old_div(-0.5*(vdw[i] - vdw[j])**2,s2**2))
                 kappa[j, i] = kappa[i, j]
         u, v = np.linalg.eigh(kappa)
         u = np.sqrt(abs(u[-nalch:]))
@@ -356,7 +360,7 @@ def main(ffing, fprop, seed, nalch, sigmaw, sigmau, suffix, fu, species, \
     #if suffix != '': suffix = '_'+suffix
 
     #shuffling to undo fps
-    rr = range(ntrain)
+    rr = list(range(ntrain))
     np.random.shuffle(rr)
     pdict2 = {}
     for i, j in enumerate(rr):
@@ -366,11 +370,11 @@ def main(ffing, fprop, seed, nalch, sigmaw, sigmau, suffix, fu, species, \
     y = y[rr]
     
     #separate the fingerprints across the data set into A and B
-    plist = [(key, val) for (key, val) in pdict.iteritems()]
-    p1 = dict(plist[:ntrain/2])
-    p2 = dict(plist[ntrain/2:])
-    y1 = y[:ntrain/2]
-    y2 = y[ntrain/2:]
+    plist = [(key, val) for (key, val) in pdict.items()]
+    p1 = dict(plist[:old_div(ntrain,2)])
+    p2 = dict(plist[old_div(ntrain,2):])
+    y1 = y[:old_div(ntrain,2)]
+    y2 = y[old_div(ntrain,2):]
     p1 = p(p1)
     p2 = p(p2)
 
@@ -402,7 +406,7 @@ def main(ffing, fprop, seed, nalch, sigmaw, sigmau, suffix, fu, species, \
     def df(u): return gua(u) + gub(u) + sigmau*u.ravel()
 
     print('Start opt: {}'.format(ctime()))
-    for i in xrange(50):
+    for i in range(50):
         if os.path.exists('EXIT') == True: 
             print("Found EXIT file")
             break

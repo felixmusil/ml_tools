@@ -1,4 +1,5 @@
 
+from builtins import range
 from ..base import KernelBase,FeatureBase
 from ..base import np,sp
 from ..math_utils import power,average_kernel

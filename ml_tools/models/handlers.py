@@ -1,3 +1,4 @@
+from builtins import object
 from ..utils import check_dir,dump_pck,load_pck,dump_json,load_json,check_file
 import numpy as np
 from string import Template 
@@ -150,7 +151,7 @@ class HashJsonHandler(object):
         else:
             previous_output = None
         
-        for k,(fieldname,fn) in global_data_json_fns.iteritems():
+        for k,(fieldname,fn) in global_data_json_fns.items():
             global_data[k] = self.get_data(fn,fieldname=fieldname)
         
         

@@ -1,6 +1,7 @@
 """
 Compatibility layer for Python 3/Python 2 single codebase
 """
+from past.builtins import basestring
 import sys
 
 PY3_OR_LATER = sys.version_info[0] >= 3
@@ -9,7 +10,7 @@ PY27 = sys.version_info[:2] == (2, 7)
 
 try:
     _basestring = basestring
-    _bytes_or_unicode = (str, unicode)
+    _bytes_or_unicode = (str, str)
 except NameError:
     _basestring = str
     _bytes_or_unicode = (bytes, str)

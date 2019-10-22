@@ -1,4 +1,8 @@
 # -*- coding: utf-8 -*-
+from __future__ import division
+from builtins import zip
+from builtins import range
+from past.utils import old_div
 from numba import njit,prange,void,float64,float32,int32,int64,vectorize,jit,config,threading_layer
 import math
 from ..base import np
@@ -138,18 +142,18 @@ def grad_average_kernel_helper(g_repeated,g,ids):
         for jt in prange(sla_st,sla_nd):
             aa = (sla_nd-sla_st)
             for kt in range(slb_st,slb_nd):
-                g_repeated[jt,kt] = g[I,J]/(aa*(slb_nd-slb_st))
+                g_repeated[jt,kt] = g[I,J] / (aa*(slb_nd-slb_st))
 
 defvjp(average_kernel,grad_average_kernel,None,None)
 
 
 def symmetrize(p,dtype=np.float64):
     Nsoap,Ncomp,_,nn = p.shape
-    p2 = np.zeros((Nsoap,Ncomp*(Ncomp + 1)/2, nn),dtype=dtype)
+    p2 = np.zeros((Nsoap,old_div(Ncomp*(Ncomp + 1),2), nn),dtype=dtype)
     stride = [0] + list(range(Ncomp,0,-1))
     stride = np.cumsum(stride)
     ids = []
-    for i,st,nd in zip(range(Ncomp-1),stride[:-1],stride[1:]):
+    for i,st,nd in zip(list(range(Ncomp-1)),stride[:-1],stride[1:]):
         ids.append([i,st,nd])
     ids = np.asarray(ids,dtype=np.int32).reshape((-1,3))
     symm_0(p,p2,ids,Nsoap,Ncomp)
@@ -180,11 +184,11 @@ def get_unlin_soap(rawsoap,params,global_species,dtype=np.float64):
 
     #translate the fingerprints from QUIP
     p = np.zeros((Nsoap,nspecies, nspecies, nmax, nmax, lmax + 1),dtype=dtype)
-    rs_index = np.asarray([(i%nmax, (i - i%nmax)/nmax) for i in xrange(nmax*nspecies)],dtype=np.int32)
+    rs_index = np.asarray([(i%nmax, old_div((i - i%nmax),nmax)) for i in range(nmax*nspecies)],dtype=np.int32)
     counter = 0
     fac = np.zeros((nmax*nspecies,nmax*nspecies,2),dtype=np.int32)
-    for i in xrange(nmax*nspecies):
-        for j in xrange(i + 1):
+    for i in range(nmax*nspecies):
+        for j in range(i + 1):
             mult = 0  if i != j else 1
 
             fac[i,j] = np.array([mult,counter])

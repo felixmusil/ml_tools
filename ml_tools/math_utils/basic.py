@@ -1,3 +1,7 @@
+from __future__ import division
+from builtins import zip
+from builtins import range
+from past.utils import old_div
 from ..base import np,sp
 from autograd.extend import primitive,defvjp,defjvp
 
@@ -45,7 +49,7 @@ def grad_average_kernel(ans, envKernel,Xstrides,Ystrides,is_square):
                     if I < J:
                         g_repeated[ist:ind,jst:jnd] = g_repeated[jst:jnd,ist:ind].T
                         continue
-                g_repeated[ist:ind,jst:jnd] = g[I,J]/((ind-ist)*(jnd-jst))
+                g_repeated[ist:ind,jst:jnd] = g[I,J] /((ind-ist)*(jnd-jst))
         return g_repeated
     return vjp
 
@@ -54,10 +58,10 @@ defvjp(average_kernel,grad_average_kernel,None,None)
 
 def symmetrize(p):
     Nsoap,Ncomp,_,nn = p.shape
-    p2 = np.empty((Nsoap,Ncomp*(Ncomp + 1)/2, nn))
+    p2 = np.empty((Nsoap,old_div(Ncomp*(Ncomp + 1),2), nn))
     stride = [0] + list(range(Ncomp,0,-1))
     stride = np.cumsum(stride)
-    for i,st,nd in zip(range(Ncomp-1),stride[:-1],stride[1:]):
+    for i,st,nd in zip(list(range(Ncomp-1)),stride[:-1],stride[1:]):
         p2[:,st] = p[:,i, i]
         p2[:,st+1:nd] = p[:,i, (i+1):Ncomp]*np.sqrt(2.0)
     p2[:,-1] = p[:,Ncomp-1,Ncomp-1]
@@ -78,9 +82,9 @@ def get_unlin_soap(rawsoap,params,global_species):
     #translate the fingerprints from QUIP
     counter = 0
     p = np.zeros((Nsoap,nspecies, nspecies, nmax, nmax, lmax + 1))
-    rs_index = [(i%nmax, (i - i%nmax)/nmax) for i in xrange(nmax*nspecies)]
-    for i in xrange(nmax*nspecies):
-        for j in xrange(i + 1):
+    rs_index = [(i%nmax, old_div((i - i%nmax),nmax)) for i in range(nmax*nspecies)]
+    for i in range(nmax*nspecies):
+        for j in range(i + 1):
             if i != j: mult = np.sqrt(0.5)
             else: mult = 1.0
             n1, s1 = rs_index[i]
@@ -89,8 +93,8 @@ def get_unlin_soap(rawsoap,params,global_species):
             if s1 == s2: p[:,s1, s2, n2, n1, :] = rawsoap[:,counter:counter+(lmax + 1)]*mult
             counter += (lmax + 1)
 
-    for s1 in xrange(nspecies):
-        for s2 in xrange(s1):
+    for s1 in range(nspecies):
+        for s2 in range(s1):
             p[:,s2, s1] = p[:,s1, s2].transpose((0, 2, 1, 3))
 
     return p

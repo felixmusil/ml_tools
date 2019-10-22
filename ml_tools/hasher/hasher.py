@@ -7,6 +7,7 @@ hashing of numpy arrays.
 # Copyright (c) 2009 Gael Varoquaux
 # License: BSD Style, 3 clauses.
 
+from builtins import object
 import pickle
 import _hashlib as hashlib
 import sys

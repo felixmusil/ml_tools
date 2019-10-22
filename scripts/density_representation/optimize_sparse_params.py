@@ -1,4 +1,8 @@
 from __future__ import print_function
+from __future__ import division
+from future import standard_library
+standard_library.install_aliases()
+from past.utils import old_div
 import ase
 from ase.io import read,write
 from ase.visualize import view
@@ -7,7 +11,7 @@ import mkl
 from glob import glob
 from copy import copy
 from sklearn.model_selection import KFold,ParameterGrid
-import cPickle as pck
+import pickle as pck
 import json
 import pandas as pd
 
@@ -74,8 +78,8 @@ for delta in tqdm_cs(deltas,desc='delta'):
             for train,test in tqdm_cs(cv.split(Kmat),desc='cv',total=cv.n_splits,leave=False):
                 kMN = Kmat[np.ix_(active_ids,train)]
                 ## assumes Lambda= Lambda**2*np.diag(np.ones(n))
-                sparseK = kMM + np.dot(kMN,kMN.T)/Lambda
-                sparseY = np.dot(kMN,y_train[train])/Lambda
+                sparseK = kMM + old_div(np.dot(kMN,kMN.T),Lambda)
+                sparseY = old_div(np.dot(kMN,y_train[train]),Lambda)
                 Ktest = Kmat[np.ix_(test,active_ids)]
                 krr.fit(sparseK,sparseY)
                 y_pred[test] = krr.predict(Ktest)

@@ -1,3 +1,5 @@
+from builtins import range
+from builtins import object
 from ..base import np,sp
 from scipy.linalg import cho_factor,cho_solve
 import os
@@ -73,7 +75,7 @@ class GPR(object):
             if self_kernel is not None:
                 #kernel = cho_solve((self.L, self.lower), kernel,overwrite_b=True)
                 aa = np.zeros((kernel.shape[1],))
-                for ii in xrange(kernel.shape[1]):
+                for ii in range(kernel.shape[1]):
                     aa[ii] = np.dot(kernel[:,ii],kernel[:,ii])
                 #err2 = self.reg[0]*np.ones(aa.shape) + self_kernel - aa
                 err2 = self_kernel - aa
@@ -84,7 +86,7 @@ class GPR(object):
             if self_kernel is not None:
                 v = cho_solve((self.L, self.lower), a_kernel,overwrite_b=False)
                 aa = np.zeros((v.shape[1],))
-                for ii in xrange(v.shape[1]):
+                for ii in range(v.shape[1]):
                     aa[ii] = np.dot(a_kernel[:,ii],v[:,ii])
                 
                 #err2 = self.reg[0]*np.ones(aa.shape) + self_kernel - aa

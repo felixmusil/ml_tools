@@ -1,3 +1,5 @@
+from __future__ import division
+from past.utils import old_div
 from ..base import np,sp,BaseEstimator
 from ..utils import tqdm_cs,return_deepcopy,score_func
 from ..models.trainers import FullCovarianceTrainer,SoRTrainer
@@ -26,7 +28,7 @@ class CrossValidationScorer(BaseEstimator):
             K_test,y_true = self.trainer.prepare_kernel_and_targets(train_ids=train,test_ids=test,**self.model_params)
             y_pred = model.predict(K_test)
             self.predictions.append(dict(y_ref=y_true,y_pred=y_pred))
-            for k,func in self.score_func.iteritems():
+            for k,func in self.score_func.items():
                 self.scores[k].append(func(y_true,y_pred))
 
         self.score = {k:np.mean(self.scores[k]) for k in self.score_func}
@@ -38,7 +40,7 @@ class CrossValidationScorer(BaseEstimator):
         if txt is False:
             return dict(score=self.score,predictions=self.predictions)
         else:
-            return ' '.join([k+'={:.3e}'.format(v) for k,v in self.score.iteritems()])
+            return ' '.join([k+'={:.3e}'.format(v) for k,v in self.score.items()])
 
     @return_deepcopy
     def get_params(self,deep=True):
@@ -99,7 +101,7 @@ class KRRFastCVScorer(BaseEstimator):
             y_pred = y[test] - beta
             y_true = y[test]
             self.predictions.append(dict(y_ref=y_true,y_pred=y_pred))
-            for k,func in self.score_func.iteritems():
+            for k,func in self.score_func.items():
                 self.scores[k].append(func(y_true,y_pred))
 
         self.score = {k:np.mean(self.scores[k]) for k in self.score_func}
@@ -110,7 +112,7 @@ class KRRFastCVScorer(BaseEstimator):
         if txt is False:
             return dict(score=self.score,predictions=self.predictions)
         else:
-            return ' '.join([k+'={:.3e}'.format(v) for k,v in self.score.iteritems()])
+            return ' '.join([k+'={:.3e}'.format(v) for k,v in self.score.items()])
 
     def predict(self,kernel=None):
         raise 'CrossValidationScorer does not predict'
@@ -162,7 +164,7 @@ class SoRCrossValidationScorer(CrossValidationScorer):
             y_pred = np.dot(alpha,kernel_test).flatten()
 
             self.predictions.append(dict(y_ref=y_true,y_pred=y_pred))
-            for k,func in self.score_func.iteritems():
+            for k,func in self.score_func.items():
                 self.scores[k].append(func(y_true,y_pred))
 
         self.score = {k:np.mean(self.scores[k]) for k in self.score_func}

@@ -1,3 +1,6 @@
+from builtins import zip
+from builtins import str
+from builtins import range
 from sklearn.model_selection._split import KFold as _KFold
 from sklearn.model_selection._split import ShuffleSplit as _ShuffleSplit
 from sklearn.model_selection._split import (_BaseKFold,

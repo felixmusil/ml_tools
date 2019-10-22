@@ -1,3 +1,8 @@
+from __future__ import division
+from builtins import str
+from builtins import map
+from builtins import range
+from past.utils import old_div
 from ..base import AtomicDescriptorBase,FeatureBase
 from quippy import descriptors
 from ..base import np,sp
@@ -100,7 +105,7 @@ class RawSoapQUIP(AtomicDescriptorBase):
         for sp1 in spkitMax:
             for sp2 in spkitMax:
                 if sp1 == sp2:
-                    Nsoap += nmax*(nmax+1)*(lmax+1) / 2
+                    Nsoap += old_div(nmax*(nmax+1)*(lmax+1), 2)
                 elif sp1 > sp2:
                     Nsoap += nmax**2*(lmax+1)
         return Nsoap + 1
@@ -183,7 +188,7 @@ class RawSoapQUIP(AtomicDescriptorBase):
 
     def transform(self,X):
 
-        frames = map(self.compute_neigbourlist,X)
+        frames = list(map(self.compute_neigbourlist,X))
 
         soapstr = Template(' '.join(['average=F normalise=T soap cutoff_dexp=$cutoff_dexp cutoff_rate=$cutoff_rate ',
                             'cutoff_scale=$cutoff_scale central_reference_all_species=F',
@@ -199,7 +204,7 @@ class RawSoapQUIP(AtomicDescriptorBase):
         else:
             soaps = self.init_data(frames)
 
-        for iframe in tqdm_cs(range(Nframe),desc='RawSoap',leave=True,disable=self.disable_pbar):
+        for iframe in tqdm_cs(list(range(Nframe)),desc='RawSoap',leave=True,disable=self.disable_pbar):
             result = get_rawsoap(frames[iframe],soapstr,**self.soap_params)
 
             if self.is_sparse:
