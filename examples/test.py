@@ -1,3 +1,4 @@
+from __future__ import print_function
 import numpy as np
 import ase
 from ase.io import read,write
@@ -77,6 +78,6 @@ model = trainer.fit(sigmas=[1e-2])
 
 frames_test = read(fn,index='10:20')
 y_test = extract_chemical_shielding(frames_test,sp)
-print model.alpha
+print(model.alpha)
 y_pred = model.predict(frames_test)
-print get_score(y_pred,y_test)
+print(get_score(y_pred,y_test))
