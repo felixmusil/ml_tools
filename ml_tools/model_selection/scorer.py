@@ -67,12 +67,15 @@ class KRRFastCVScorer(BaseEstimator):
     """
     _pairwise = True
 
-    def __init__(self,lambdas,trainer,cv):
+    def __init__(self,lambdas,trainer,cv,scoring_func=None):
         self.lambdas = lambdas
         self.trainer = trainer
         self.cv = cv
 
-        self.score_func = score_func
+        if scoring_func is None:
+            self.score_func = score_func
+        else:
+            self.score_func = scoring_func
 
         self.predictions = None
         self.scores = None
@@ -115,12 +118,14 @@ class KRRFastCVScorer(BaseEstimator):
     def get_params(self,deep=True):
         return dict(lambdas=self.lambdas ,cv=self.cv,trainer=self.trainer)
 
+    @return_deepcopy
     def dumps(self):
         state = {}
         state['init_params'] = self.get_params()
         state['data'] = dict(predictions=self.predictions,
                             scores=self.scores,
                             score=self.score)
+        return state
 
     def loads(self,state):
         self.predictions = state['predictions']
