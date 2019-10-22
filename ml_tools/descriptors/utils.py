@@ -1,6 +1,7 @@
 from builtins import zip
 from builtins import range
 from ..base import np
+from ase.neighborlist import neighbor_list
 
 
 def get_chunks(lenght,chunk_lenght):
@@ -37,14 +38,15 @@ def get_frame_slices(frames,nocenters=None,fast_avg=False):
     return Ncenter,slices,strides
 
 
-def get_frame_neigbourlist(frames,nocenters):
+def get_frame_neigbourlist(frames,nocenters,cutoff):
     Nneighbour = 0
     strides_neighbour = []
     strides_gradients = [0]
     for frame in frames:
         # include centers too wit +1
         numbers = frame.get_atomic_numbers()
-        n_neighb = frame.get_array('n_neighb')+1
+        # n_neighb = frame.get_array('n_neighb')+1
+        n_neighb = np.bincount(neighbor_list('i',frame, 3.5))+1
         mask = np.zeros(numbers.shape,dtype=bool)
 
         for sp in nocenters:

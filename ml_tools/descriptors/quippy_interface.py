@@ -111,9 +111,9 @@ class RawSoapQUIP(AtomicDescriptorBase):
         return Nsoap + 1
 
     def compute_neigbourlist(self,frame):
-        frame = ase2qp(frame)
-        frame.set_cutoff(self.soap_params['rc'])
-        frame.calc_connect()
+        # frame = ase2qp(frame)
+        # frame.set_cutoff(self.soap_params['rc'])
+        # frame.calc_connect()
         return frame
 
     def init_data(self, frames):
@@ -145,23 +145,26 @@ class RawSoapQUIP(AtomicDescriptorBase):
             self.slices_gradients = [None] * len(frames)
             features = Representation(Ncenter=Ncenter, Nfeature=Nfeature, chunk_len=chunk_len,hyperparams=soap_params)
         elif with_gradients is True:
-            Nneighbour,strides_gradients,self.slices_gradients = get_frame_neigbourlist(frames,nocenters=nocenters)
+            Nneighbour,strides_gradients,self.slices_gradients = get_frame_neigbourlist(frames,nocenters=nocenters,cutoff=self.soap_params['rc'])
 
             features = Representation(Ncenter=Ncenter, Nfeature=Nfeature,  Nneighbour=Nneighbour, has_gradients=True,chunk_len=chunk_len,hyperparams=soap_params)
 
         return features
 
     def insert_to(self, features, iframe, quippy_results):
-        quippy_rep = quippy_results['descriptor']
+        quippy_rep = quippy_results['data']
         quippy_grad,grad_species = None,None
         map_grad2desc,grad = None,None
         desc_mapping = np.zeros((quippy_rep.shape[0],1))
-        atom_mapping = quippy_results['descriptor_index_0based'].flatten()
+        # print(quippy_results.keys())
+        atom_mapping = np.arange(0,quippy_rep.shape[0])
         species = self.atomic_types[iframe]
 
-        if 'grad' in quippy_results:
-            quippy_grad = quippy_results['grad']
-            grad_mapping = quippy_results['grad_index_0based']
+        if 'grad_data' in quippy_results:
+            quippy_grad = quippy_results['grad_data']
+            grad_mapping = quippy_results['ii']
+            # print(grad_mapping.shape)
+            # print(grad_mapping)
             pos_ids = np.unique(grad_mapping[:,1])
 
             grad_species = np.zeros(quippy_grad.shape[0])
@@ -190,7 +193,7 @@ class RawSoapQUIP(AtomicDescriptorBase):
 
         frames = list(map(self.compute_neigbourlist,X))
 
-        soapstr = Template(' '.join(['average=F normalise=T soap cutoff_dexp=$cutoff_dexp cutoff_rate=$cutoff_rate ',
+        soapstr = Template(' '.join(['soap cutoff_dexp=$cutoff_dexp cutoff_rate=$cutoff_rate ',
                             'cutoff_scale=$cutoff_scale central_reference_all_species=F',
                             'central_weight=$centerweight covariance_sigma0=0.0 atom_sigma=$awidth',
                             'cutoff=$rc cutoff_transition_width=$cutoff_transition_width n_max=$nmax l_max=$lmax',
@@ -208,7 +211,7 @@ class RawSoapQUIP(AtomicDescriptorBase):
             result = get_rawsoap(frames[iframe],soapstr,**self.soap_params)
 
             if self.is_sparse:
-                soap = result['descriptor']
+                soap = result['data']
                 if self.fast_avg:
                     soap = np.mean(soap,axis=0)
                 soap[np.abs(soap)<1e-13] = 0
