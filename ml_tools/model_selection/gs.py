@@ -15,13 +15,13 @@ class StepsGrid(object):
         self.step_obj = {k:obj for k,obj,v in steps}
         self.N_iter = 1
         self.parameters_gs = {}
-        self.param_names = {k:sorted([name for name in v])for k,v in parameters_gs.items() }
+        self.param_names = {k:sorted([name for name in v])for k,v in list(parameters_gs.items()) }
         
-        self.parameters_to_display = {'low':   {k:[]  for k,v in parameters_fixed.items()},
-                                      'medium':{k:[]  for k,v in parameters_fixed.items()},
-                                      'high':  {k:[name for name in v]  for k,v in parameters_fixed.items() }}
+        self.parameters_to_display = {'low':   {k:[]  for k,v in list(parameters_fixed.items())},
+                                      'medium':{k:[]  for k,v in list(parameters_fixed.items())},
+                                      'high':  {k:[name for name in v]  for k,v in list(parameters_fixed.items()) }}
         for name in self.step_names:
-            for k,v in parameters_gs[name].items():
+            for k,v in list(parameters_gs[name].items()):
                 if is_iterable(v):
                     self.N_iter *= len(v)
                     self.parameters_gs[k] = v
@@ -77,14 +77,14 @@ class GridSearch(object):
             model.fit(X,y)
             
             summary = model.get_summary()
-            aa = {k:v for k,v in summary['score'].items()}
+            aa = {k:v for k,v in list(summary['score'].items())}
             if self.verbosity in ['medium','high']:
                 aa.update(**{'predictions':summary['predictions']})
             bb = {}
             for name,step in steps:
                 for k in self.steps_grid.parameters_to_display[self.verbosity][name]:
                     if isinstance(step['params'][k],dict):
-                        for kk,v in step['params'][k].items():
+                        for kk,v in list(step['params'][k].items()):
                             bb[kk] = v
                     else:
                         bb[k] = step['params'][k] 

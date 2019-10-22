@@ -151,7 +151,7 @@ class HashJsonHandler(object):
         else:
             previous_output = None
         
-        for k,(fieldname,fn) in global_data_json_fns.items():
+        for k,(fieldname,fn) in list(global_data_json_fns.items()):
             global_data[k] = self.get_data(fn,fieldname=fieldname)
         
         

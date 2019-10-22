@@ -23,7 +23,7 @@ class LearningCurve(BaseEstimator):
             K_test,y_true = self.trainer.prepare_kernel_and_targets(train_ids=train,test_ids=test,**self.model_params)
             y_pred = model.predict(K_test)
             self.predictions.append(dict(y_ref=y_true,y_pred=y_pred))
-            for k,func in self.score_func.items():
+            for k,func in list(self.score_func.items()):
                 self.scores[k].append(func(y_true,y_pred))
 
         strides = np.cumsum([0]+list(self.args['n_repeats']))
@@ -38,7 +38,7 @@ class LearningCurve(BaseEstimator):
             self.score[itrain] = sc
 
     def predict(self,X):
-        raise 'LC does not predict'
+        raise ValueError('LC does not predict')
 
     def plot(self,measure):
         Ntrains = [sc['Ntrain']  for sc in self.score]

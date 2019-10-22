@@ -62,7 +62,7 @@ score_func = dict(
 
 def get_score(ypred,y):
     scores = {}
-    for k,func in score_func.items():
+    for k,func in list(score_func.items()):
         scores[k] = func(ypred,y)
     return scores
 
@@ -100,7 +100,7 @@ def qp2ase(qpatoms):
     pbc = qpatoms.get_pbc()
     atoms = aseAtoms(numbers=numbers, cell=cell, positions=positions, pbc=pbc)
 
-    for key, item in qpatoms.arrays.items():
+    for key, item in list(qpatoms.arrays.items()):
         if key in ['positions', 'numbers', 'species', 'map_shift', 'n_neighb']:
             continue
         atoms.set_array(key, item)
