@@ -1,4 +1,7 @@
 from __future__ import print_function
+from future import standard_library
+standard_library.install_aliases()
+from builtins import range
 import numpy as np
 import ase
 from ase.io import read,write
@@ -6,7 +9,7 @@ from ase.visualize import view
 from glob import glob
 from copy import copy
 from tqdm import tqdm_notebook
-import cPickle as pck
+import pickle as pck
 
 import sys,os
 sys.path.insert(0,'../')

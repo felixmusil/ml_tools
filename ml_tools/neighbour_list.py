@@ -1,4 +1,8 @@
+from __future__ import division
 
+from builtins import range
+from builtins import object
+from past.utils import old_div
 import json
 from .base import np,sp
 
@@ -28,18 +32,18 @@ class BoxList(object):
         l1 = np.linalg.norm(b1_c)
         l2 = np.linalg.norm(b2_c)
         l3 = np.linalg.norm(b3_c)
-        face_dist_c = np.array([1 / l1 if l1 > 0 else 1,
-                                1 / l2 if l2 > 0 else 1,
-                                1 / l3 if l3 > 0 else 1])
+        face_dist_c = np.array([old_div(1, l1) if l1 > 0 else 1,
+                                old_div(1, l2) if l2 > 0 else 1,
+                                old_div(1, l3) if l3 > 0 else 1])
         
         # We use a minimum bin size of 3 A
         self.bin_size = max_cutoff
         # Compute number of bins such that a sphere of radius cutoff fit into eight
         # neighboring bins.
-        self.nbins_c = np.maximum((face_dist_c / self.bin_size).astype(int), [1, 1, 1])
+        self.nbins_c = np.maximum((old_div(face_dist_c, self.bin_size)).astype(int), [1, 1, 1])
         self.nbins = np.prod(self.nbins_c)
         # Compute over how many bins we need to loop in the neighbor list search.
-        self.neigh_search = np.ceil(self.bin_size * self.nbins_c / face_dist_c).astype(int)
+        self.neigh_search = np.ceil(old_div(self.bin_size * self.nbins_c, face_dist_c)).astype(int)
         self.bin2icenters = [[] for bin_idx in range(self.nbins)]
         scaled_positions_ic = np.linalg.solve(cell.T,centers.T).T
         self.h_sizes = np.linalg.norm(cell,axis=1)
@@ -97,7 +101,7 @@ class Box(object):
         fac = 1
         cell_pos = np.array([0,0,0])
         for ii in range(3):
-            cell_pos[ii] = lin_ids/fac % self.nbins_c[ii]
+            cell_pos[ii] = old_div(lin_ids,fac) % self.nbins_c[ii]
             fac *= self.nbins_c[ii]
         return cell_pos
     def iter_neigh_box(self):

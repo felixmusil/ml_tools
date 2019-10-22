@@ -1,3 +1,6 @@
+from __future__ import division
+from past.utils import old_div
+from builtins import object
 from sklearn.base import BaseEstimator, RegressorMixin,TransformerMixin
 import os
 import importlib
@@ -31,7 +34,7 @@ def is_large_array(data):
         return False
 
 def is_npy_filename(fn):
-    if isinstance(fn,str) or isinstance(fn,unicode):
+    if isinstance(fn,str) or isinstance(fn,str):
         filename , file_extension = os.path.splitext(fn)
         if file_extension == '.npy':
             return True
@@ -89,9 +92,9 @@ class BaseIO(object):
             obj = self
         state = obj.dumps()
 
-        for name,entry in state.items():
+        for name,entry in list(state.items()):
             if isinstance(entry, dict):
-                for k,v in entry.items():
+                for k,v in list(entry.items()):
                     if isinstance(v, BaseIO) is True:
                         state[name][k] = self.to_dict(v,version)
 
@@ -111,9 +114,9 @@ class BaseIO(object):
     def from_dict(self,data):
         version = data['version']
 
-        for name,entry in data.items():
+        for name,entry in list(data.items()):
             if isinstance(entry, dict):
-                for k,v in entry.items():
+                for k,v in list(entry.items()):
                     if is_valid_object_dict[version](v) is True:
                          data[name][k] = self.from_dict(v)
                     elif isinstance(v, list):
@@ -161,7 +164,7 @@ class BaseIO(object):
 
     def _dump_npy(self,fn,data,class_name):
         filename , file_extension = os.path.splitext(fn)
-        for k,v in data.items():
+        for k,v in list(data.items()):
             if isinstance(v,dict):
                 if 'class_name' in data:
                     class_name = data['class_name'].lower()
@@ -178,7 +181,7 @@ class BaseIO(object):
                 data[k] = ['npy',v.tolist()]
 
     def _load_npy(self,data, path):
-        for k,v in data.items():
+        for k,v in list(data.items()):
             if isinstance(v,dict):
                 self._load_npy(v, path)
             elif is_npy_filename(v) is True:
@@ -269,7 +272,7 @@ class TrainerBase(BaseIO):
 
     @staticmethod
     def make_self_contribution(y_train,X_train,X_train_nograd,Natoms):
-        y_train_peratom = y_train / Natoms
+        y_train_peratom = old_div(y_train, Natoms)
         y_mean_per_atom = np.mean(y_train_peratom)
         species = np.unique(X_train.get_species())
         if X_train_nograd is not None:
