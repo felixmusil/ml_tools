@@ -1,3 +1,4 @@
+from __future__ import print_function
 from ..base import BaseEstimator,TransformerMixin,FeatureBase,np
 from ..utils import tqdm_cs,return_deepcopy
 from scipy.sparse.linalg import  svds
@@ -52,7 +53,7 @@ class CURFilter(BaseEstimator,TransformerMixin):
                 x[1] = X
 
             for sp in x:
-                print sp
+                print(sp)
                 self.selected_ids[sp] = do_CUR(x[sp],self.Nselect[sp],self.act_on,self.is_deterministic,self.seed)
             self.trained = True
         return self

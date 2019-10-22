@@ -1,3 +1,4 @@
+from __future__ import print_function
 import ase
 from ase.io import read,write
 from ase.visualize import view
@@ -41,7 +42,7 @@ fn_out = path + 'results/nmr/active_set/opt_cv_score_sparse.json'
 
 
 y_train = np.load(fn_prop)
-print fn_in
+print(fn_in)
 params, Kmat = load_data(fn_in,mmap_mode=None) 
 fps_ids = params['fps_ids']
 soap_params = params['soap_params']
@@ -83,7 +84,7 @@ for delta in tqdm_cs(deltas,desc='delta'):
             sc.update(dict(N_active_sample=N_active_sample,
                            delta=delta,Lambda=Lambda))
             
-            print sc
+            print(sc)
             scores.append(sc)
             df = pd.DataFrame(scores)
             df.to_json(fn_out)

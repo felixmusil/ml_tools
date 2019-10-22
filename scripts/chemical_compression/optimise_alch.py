@@ -1,3 +1,4 @@
+from __future__ import print_function
 
 import argparse
 import sys
@@ -53,7 +54,7 @@ def loss(w, p, y, nspecies, sigmaw, sigmau):
         loss += 0.5*sigmau*np.linalg.norm(u_unrav)**2
         d['losslast'] = loss
         d['ulast'] = u.copy()
-        print loss
+        print(loss)
 
         return loss
 
@@ -236,7 +237,7 @@ def prepare_input(ffing, fprop, ntrain):
     try:
         f = open(ffing, 'rb')
     except:
-        print "Cannot find the fingerprint file"
+        print("Cannot find the fingerprint file")
         sys.exit()
 
     p = pickle.load(f)
@@ -247,7 +248,7 @@ def prepare_input(ffing, fprop, ntrain):
     try:
         y = np.load(fprop)
     except:
-        print "Cannot find the property file"
+        print("Cannot find the property file")
         sys.exit()
 
     y = y[:ntrain] - y[:ntrain].mean()
@@ -265,7 +266,7 @@ def prepare_u(fu, species, nn, nspecies, nalch):
         try:
             u = np.load(fu).T
         except:
-            print "Cannot find the u data"
+            print("Cannot find the u data")
             sys.exit()
 
     else:
