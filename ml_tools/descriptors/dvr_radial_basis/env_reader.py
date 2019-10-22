@@ -1,4 +1,8 @@
+from __future__ import division
 
+from builtins import zip
+from builtins import range
+from past.utils import old_div
 from .ge import gaussian_expansion as ge
 
 import numpy as np
@@ -11,7 +15,7 @@ def cutoff(r, rcut):
   ctwidth = 0.5
   if r <= rcut - ctwidth: cutoff = 1.0
   elif r >= rcut: cutoff = 0.0
-  else: cutoff = 0.5*(1.0 + np.cos(np.pi*(r - rcut + ctwidth)/ctwidth))
+  else: cutoff = 0.5*(1.0 + np.cos(old_div(np.pi*(r - rcut + ctwidth),ctwidth)))
   return cutoff
 
 ##########################################################################################
@@ -54,7 +58,7 @@ def power_spectrum(nmax, lmax, f1, f2):
 def rconvert(r):
   rij = np.sqrt(np.dot(r, r))
   if rij > 0.0:
-    cost = r[2]/rij
+    cost = old_div(r[2],rij)
   else:
     cost = 0.0
   phi = np.arctan2(r[1], r[0])
@@ -84,7 +88,7 @@ def get_descriptor(centres, xyz, species, nmax, lmax, rcut, gdens):
   ans = xyz.get_atomic_numbers()
   nspecies = len(species)
   common = [species.index(j) for j in sorted(list(set(ans)))]
-  common = zip(common, sorted(list(set(ans))))
+  common = list(zip(common, sorted(list(set(ans)))))
   cell = xyz.get_cell()
   if cell.sum() == 0.0: pbc = False
   else: pbc = xyz.get_pbc()

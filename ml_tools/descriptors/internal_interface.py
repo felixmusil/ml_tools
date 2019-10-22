@@ -137,7 +137,7 @@ class RawSoapInternal(AtomicDescriptorBase):
         for iframe in tqdm_cs(list(range(Nframe)),desc='RawSoap',leave=self.leave,disable=self.disable_pbar):
             soap = get_descriptor(centers,frames[iframe], global_species, nmax, lmax, rc, self.gdens)
             # soap = np.vstack(soap)
-
+            
             soap /=  np.linalg.norm(soap,axis=1).reshape((-1,1))
             if self.fast_avg:
                 soap = np.mean(soap,axis=0)
